@@ -902,72 +902,96 @@ app.get('/cierres', requireAuth, (req, res) => {
 
     db.all(query, params, (err, cierres) => {
         db.all("SELECT * FROM bancos", [], (err, bancos) => {
-            let userTiendaId = req.session.user.tienda_id;
-            let queryTienda = "SELECT * FROM tiendas LIMIT 1";
-            let pTienda = [];
-            if(userTiendaId) {
-                queryTienda = "SELECT * FROM tiendas WHERE id = ?";
-                pTienda.push(userTiendaId);
+            if (cierres.length === 0) {
+                return res.render('cierres', { cierres: [], bancos, user: req.session.user });
             }
-            db.get(queryTienda, pTienda, (err, tienda) => {
-                const tiendaId = userTiendaId || (tienda ? tienda.id : null);
-                if (tiendaId) {
-                    // Obtener la ultima apertura para incluir saldo inicial por banco
-                    db.get("SELECT * FROM aperturas_caja WHERE tienda_id = ? ORDER BY fecha_hora DESC LIMIT 1", [tiendaId], (err, ultimaApertura) => {
-                        let inicialPorBanco = {}; // { banco_id: monto }
-                        if (ultimaApertura && ultimaApertura.saldos_bancos_json) {
-                            try { inicialPorBanco = JSON.parse(ultimaApertura.saldos_bancos_json); } catch(e) {}
-                        }
+            const cierresEnriquecidos = [];
+            let pending = cierres.length;
 
-                        const sqlEsperado = `
+            cierres.forEach((cierre) => {
+                db.get(`
+                    SELECT fecha_hora, saldo_inicial_efectivo, saldos_bancos_json 
+                    FROM aperturas_caja 
+                    WHERE tienda_id = ? AND fecha_hora <= ?
+                    ORDER BY fecha_hora DESC LIMIT 1
+                `, [cierre.tienda_id, cierre.fecha], (err, apertura) => {
+                    const fechaDesde = apertura ? apertura.fecha_hora : '2000-01-01';
+                    const saldoInicialEf = apertura ? (apertura.saldo_inicial_efectivo || 0) : 0;
+
+                    db.all(`
+                        SELECT tipo,
+                               SUM(CASE WHEN monto_efectivo > 0 THEN monto_efectivo ELSE 0 END) as entrada_ef,
+                               SUM(CASE WHEN monto_efectivo < 0 THEN ABS(monto_efectivo) ELSE 0 END) as salida_ef,
+                               COUNT(*) as cantidad
+                        FROM transacciones
+                        WHERE tienda_id = ? AND fecha_hora >= ? AND fecha_hora <= ?
+                        GROUP BY tipo
+                    `, [cierre.tienda_id, fechaDesde, cierre.fecha], (err, txTipos) => {
+
+                        db.all(`
                             SELECT t.banco_id, b.nombre as banco_nombre, b.color as banco_color,
-                                   SUM(t.monto_efectivo) as total_txn
+                                   SUM(CASE WHEN t.monto_efectivo > 0 THEN t.monto_efectivo ELSE 0 END) as entrada_ef,
+                                   SUM(CASE WHEN t.monto_efectivo < 0 THEN ABS(t.monto_efectivo) ELSE 0 END) as salida_ef,
+                                   SUM(t.monto_efectivo) as neto_ef,
+                                   COUNT(*) as ops
                             FROM transacciones t
                             JOIN bancos b ON t.banco_id = b.id
-                            WHERE t.tienda_id = ?
-                              AND t.fecha_hora >= COALESCE(
-                                  (SELECT fecha_hora FROM aperturas_caja WHERE tienda_id = ? ORDER BY fecha_hora DESC LIMIT 1),
-                                  '2000-01-01'
-                              )
+                            WHERE t.tienda_id = ? AND t.fecha_hora >= ? AND t.fecha_hora <= ?
                             GROUP BY t.banco_id
-                            ORDER BY b.nombre
-                        `;
-                        db.all(sqlEsperado, [tiendaId, tiendaId], (err, txPorBanco) => {
-                            // Combinar: para cada banco, saldo_inicial_apertura + neto_transacciones
-                            const esperadoFiltrado = (txPorBanco || []).map(r => {
-                                const inicialBanco = parseFloat(inicialPorBanco[r.banco_id] || 0);
-                                const neto = r.total_txn || 0;
-                                return {
-                                    ...r,
-                                    inicial: inicialBanco,
-                                    total_esperado: Math.max(0, inicialBanco + neto)
-                                };
+                        `, [cierre.tienda_id, fechaDesde, cierre.fecha], (err, txBancos) => {
+
+                            const resumen = { depositos: 0, retiros: 0, pagos_servicio: 0, caja_empresarial: 0, efectivo_entregado: 0, deposito_cuenta: 0, total_ops: 0 };
+                            (txTipos || []).forEach(t => {
+                                resumen.total_ops += t.cantidad;
+                                if (t.tipo === 'Depósito') resumen.depositos = t.entrada_ef;
+                                else if (t.tipo === 'Retiro') resumen.retiros = t.salida_ef;
+                                else if (t.tipo === 'Pago Servicio') resumen.pagos_servicio = t.entrada_ef;
+                                else if (t.tipo === 'Pago Caja Empresarial') resumen.caja_empresarial = t.entrada_ef;
+                                else if (t.tipo === 'Efectivo Entregado') resumen.efectivo_entregado = t.salida_ef;
+                                else if (t.tipo === 'Depósito Cuenta') resumen.deposito_cuenta = t.salida_ef;
                             });
-                            // Agrega bancos que tienen saldo inicial pero sin transacciones
-                            bancos.forEach(b => {
-                                const yaExiste = esperadoFiltrado.find(r => r.banco_id === b.id);
-                                if (!yaExiste && inicialPorBanco[b.id] && inicialPorBanco[b.id] > 0) {
-                                    esperadoFiltrado.push({
-                                        banco_id: b.id,
-                                        banco_nombre: b.nombre,
-                                        banco_color: b.color,
-                                        inicial: inicialPorBanco[b.id],
-                                        total_txn: 0,
-                                        total_esperado: inicialPorBanco[b.id]
+                            const totalMovido = resumen.depositos + resumen.pagos_servicio + resumen.caja_empresarial;
+                            cierre.resumen = resumen;
+                            cierre.txBancos = txBancos || [];
+                            cierre.saldoInicialEf = saldoInicialEf;
+                            cierre.totalMovido = totalMovido;
+
+                            // Parsear desglose_bancos guardado en texto
+                            let declaradoPorBanco = {};
+                            let entregaPorBanco = {};
+                            if (cierre.desglose_bancos) {
+                                const partes = cierre.desglose_bancos.split('||');
+                                const decParte = partes[0] || '';
+                                const entParte = partes[1] || '';
+                                decParte.split('|').forEach(s => {
+                                    const m = s.trim().match(/^(.+?):\s*L\s*([\d.,]+)$/);
+                                    if (m) declaradoPorBanco[m[1].trim()] = parseFloat(m[2].replace(/,/g,'')) || 0;
+                                });
+                                if (entParte.includes('ENTREGA:')) {
+                                    entParte.replace('ENTREGA:', '').split('/').forEach(s => {
+                                        const m = s.trim().match(/^(.+?):\s*L\s*([\d.,]+)$/);
+                                        if (m) entregaPorBanco[m[1].trim()] = parseFloat(m[2].replace(/,/g,'')) || 0;
                                     });
                                 }
-                            });
-                            const totalEsperado = esperadoFiltrado.reduce((acc, r) => acc + r.total_esperado, 0);
-                            res.render('cierres', { cierres, bancos, tienda, user: req.session.user, esperadoPorBanco: esperadoFiltrado, totalEsperado });
+                            }
+                            cierre.declaradoPorBanco = declaradoPorBanco;
+                            cierre.entregaPorBanco = entregaPorBanco;
+                            cierre.totalEntregado = Object.values(entregaPorBanco).reduce((a,b) => a+b, 0);
+
+                            cierresEnriquecidos.push(cierre);
+                            pending--;
+                            if (pending === 0) {
+                                cierresEnriquecidos.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+                                res.render('cierres', { cierres: cierresEnriquecidos, bancos, user: req.session.user });
+                            }
                         });
                     });
-                } else {
-                    res.render('cierres', { cierres, bancos, tienda, user: req.session.user, esperadoPorBanco: [], totalEsperado: 0 });
-                }
+                });
             });
         });
     });
 });
+
 
 app.post('/cierres/nuevo', requireAuth, (req, res) => {
     if(req.session.user.rol !== 'Cajero') return res.status(403).send("Solo cajeros pueden realizar cierres");
