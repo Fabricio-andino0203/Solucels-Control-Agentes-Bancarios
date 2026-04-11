@@ -3,7 +3,14 @@ const path = require('path');
 const fs = require('fs');
 
 // Soporte para volumen persistente de Railway (/data)
-const dbPath = process.env.DB_PATH || path.resolve(__dirname, '../Solucels.db');
+let dbPath = process.env.DB_PATH;
+if (!dbPath) {
+    if (fs.existsSync('/data')) {
+        dbPath = '/data/Solucels.db';
+    } else {
+        dbPath = path.resolve(__dirname, '../Solucels.db');
+    }
+}
 
 // Asegurar que el directorio de la base de datos exista
 const dbDir = path.dirname(dbPath);

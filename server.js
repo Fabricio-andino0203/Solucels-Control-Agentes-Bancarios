@@ -4,12 +4,13 @@ const fs = require('fs');
 const dotenv = require('dotenv');
 const session = require('express-session');
 const db = require('./config/database');
+require('./models/init');
 const dbPath = db.dbPath;
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 8080;
 
 // Manejadores de errores globales para capturar crashes en Railway
 process.on('uncaughtException', (err) => {
@@ -23,6 +24,17 @@ process.on('unhandledRejection', (reason, promise) => {
 
 console.log(`📡 Puerto detectado: ${PORT}`);
 console.log(`🏠 Host configurado: 0.0.0.0`);
+console.log(`📂 DB Path: ${dbPath}`);
+try {
+    if (fs.existsSync(dbPath)) {
+        const stats = fs.statSync(dbPath);
+        console.log(`📊 DB File Size: ${(stats.size / 1024).toFixed(2)} KB`);
+    } else {
+        console.log(`⚠️ DB File NO existe todavía (se creará)`);
+    }
+} catch (e) {
+    console.error(`❌ Error al leer stats de DB: ${e.message}`);
+}
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
