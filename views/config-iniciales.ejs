@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <%- include('partials/head') %>
+    <title>Saldos Iniciales - Solucels Control Agentes Bancarios</title>
+    <style>
+        .initial-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        .store-setup-card {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .store-setup-title {
+            color: var(--accent-blue);
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 0.5rem;
+        }
+        .setup-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.8rem;
+        }
+        .setup-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <%- include('partials/sidebar', { active: 'configuracion', user: user }) %>
+    <main class="main-content">
+        <div class="header">
+            <h1 style="display: flex; align-items: center; gap: 1rem;">
+                <a href="/configuracion" style="text-decoration: none; color: var(--text-muted); font-size: 1.2rem;">←</a>
+                Configuración de Saldos Iniciales
+            </h1>
+        </div>
+
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 2rem;">
+            Establezca el capital inicial de cada tienda. Estos montos se sumarán a los ingresos y restarán egresos para dar el saldo actual exacto.
+        </p>
+
+        <form action="/config/iniciales" method="POST">
+            <div class="initial-grid">
+                <% tiendas.forEach(function(t) { %>
+                    <div class="store-setup-card">
+                        <div class="store-setup-title"><%= t.nombre %></div>
+                        
+                        <!-- Efectivo Físico Inicial -->
+                        <div class="setup-row">
+                            <span class="setup-label">Efectivo Físico Inicial</span>
+                            <input type="text" name="monto_efectivo_<%= t.id %>" 
+                                   class="input-audit money-input" 
+                                   style="width: 160px;" 
+                                   value="<%= saldosMap[t.id] && saldosMap[t.id]['efectivo'] ? saldosMap[t.id]['efectivo'] : '0.00' %>">
+                        </div>
+
+                        <!-- Bancos Iniciales -->
+                        <% bancos.forEach(function(b) { %>
+                            <div class="setup-row">
+                                <span class="setup-label">Saldo Inicial <%= b.nombre %></span>
+                                <input type="text" name="monto_banco_<%= t.id %>_<%= b.id %>" 
+                                       class="input-audit money-input" 
+                                       style="width: 160px;" 
+                                       value="<%= saldosMap[t.id] && saldosMap[t.id][b.id] ? saldosMap[t.id][b.id] : '0.00' %>">
+                            </div>
+                        <% }); %>
+                    </div>
+                <% }); %>
+            </div>
+
+            <div style="margin-top: 2rem; display: flex; justify-content: flex-end;">
+                <button type="submit" class="btn btn-primary" style="padding: 1rem 3rem; font-weight: 700;">
+                    Guardar Todos los Saldos Iniciales
+                </button>
+            </div>
+        </form>
+    </main>
+    <script src="/js/money-formatter.js"></script>
+</body>
+</html>

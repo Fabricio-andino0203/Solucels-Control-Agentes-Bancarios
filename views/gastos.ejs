@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <title>Gastos Bancarios - Solucels Control Agentes Bancarios</title>
+    <%- include('partials/head') %>
+    <style>
+        .btn-action { background: none; border: none; cursor: pointer; padding: 0.4rem; border-radius: 4px; transition: all 0.2s; }
+        .btn-edit { color: var(--accent-blue); }
+        .btn-edit:hover { background: rgba(10, 132, 255, 0.1); }
+        .btn-delete { color: #dc3545; }
+        .btn-delete:hover { background: rgba(220, 53, 69, 0.1); }
+        .modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); }
+        .modal-content { background: var(--bg-card); margin: 10% auto; padding: 2rem; border-radius: 16px; width: 90%; max-width: 450px; border: 1px solid #333; }
+        .modal-header { font-size: 1.2rem; font-weight: 700; margin-bottom: 1.5rem; color: var(--accent-blue); display: flex; justify-content: space-between; align-items: center; }
+        .close-modal { color: var(--text-muted); cursor: pointer; font-size: 1.5rem; }
+    </style>
+</head>
+<body>
+    <%- include('partials/sidebar', { active: 'gastos', user: user }) %>
+    <main class="main-content">
+        <div class="header">
+            <h1>Gestión de Gastos Operativos</h1>
+            <div class="user-profile">
+                <span><%= user.username %> (<%= user.rol %>)</span>
+            </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 2rem;">
+            <!-- FORMULARIO DE REGISTRO -->
+            <div class="audit-stat-card">
+                <h2 style="font-size: 1.1rem; margin-bottom: 1.5rem; color: var(--accent-blue);">Registrar Nuevo Gasto</h2>
+                <form action="/gastos" method="POST">
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label class="form-label">Banco de Origen (Obligatorio)</label>
+                        <select name="banco_id" class="input-audit" style="width: 100%;" required>
+                            <option value="">-- Seleccionar Banco --</option>
+                            <% bancos.forEach(function(b) { %>
+                                <option value="<%= b.id %>"><%= b.nombre %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label class="form-label">Categoría</label>
+                        <select name="categoria" class="input-audit" style="width: 100%;" required>
+                            <option value="Servicios Públicos">Servicios Públicos</option>
+                            <option value="Alquiler">Alquiler</option>
+                            <option value="Sueldos">Sueldos</option>
+                            <option value="Suministros">Suministros</option>
+                            <option value="Otros">Otros</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label class="form-label">Monto del Gasto</label>
+                        <input type="text" name="monto" class="input-audit money-input" style="width: 100%;" placeholder="L 0.00" required>
+                    </div>
+                    <div class="form-group" style="margin-bottom: 1.5rem;">
+                        <label class="form-label">Descripción</label>
+                        <input type="text" name="descripcion" class="input-audit" style="width: 100%;" placeholder="Ej: Pago internet Marzo" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width: 100%; padding: 1rem;">Guardar Gasto Bancario</button>
+                    <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 1rem; text-align: center;">
+                        * Este gasto restará saldo del banco, pero NO afectará el efectivo físico.
+                    </p>
+                </form>
+            </div>
+
+            <!-- HISTORIAL DE GASTOS -->
+            <div class="audit-matrix-container">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                    <h2 style="font-size: 1.1rem; color: #fff;">Historial de Egresos Bancarios</h2>
+                </div>
+                <table class="audit-table">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Banco</th>
+                            <th>Categoría</th>
+                            <th>Monto</th>
+                            <% if(user.rol !== 'Cajero') { %><th>Acciones</th><% } %>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% gastos.forEach(function(g) { %>
+                            <tr>
+                                <td><%= new Date(g.fecha_hora).toLocaleDateString('es-HN') %></td>
+                                <td><%= g.banco_nombre %></td>
+                                <td><%= g.categoria %></td>
+                                <td class="amount-bold text-expense">L <%= g.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
+                                <% if(user.rol !== 'Cajero') { %>
+                                <td>
+                                    <div style="display: flex; gap: 0.5rem;">
+                                        <button class="btn-action btn-edit" onclick="openEditGastoModal('<%= g.id %>', '<%= g.monto %>', '<%= g.categoria %>', '<%= g.descripcion %>')" title="Editar">✎</button>
+                                        <form action="/gastos/eliminar/<%= g.id %>" method="POST" style="display:inline;" onsubmit="return confirm('¿Eliminar este gasto? El saldo del banco se devolverá automáticamente.')">
+                                            <button type="submit" class="btn-action btn-delete" title="Eliminar">🗑</button>
+                                        </form>
+                                    </div>
+                                </td>
+                                <% } %>
+                            </tr>
+                        <% }); %>
+                        <% if (gastos.length === 0) { %>
+                            <tr>
+                                <td colspan="4" style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay gastos registrados.</td>
+                            </tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+    </main>
+
+    <!-- Modal Editar Gasto -->
+    <div id="editGastoModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span>Editar Gasto Operativo</span>
+                <span class="close-modal" onclick="closeEditGastoModal()">&times;</span>
+            </div>
+            <form id="editGastoForm" method="POST">
+                <div style="margin-bottom: 1rem;">
+                    <label class="form-label">Monto del Gasto</label>
+                    <input type="text" name="monto" id="editGastoMonto" class="input-audit money-input" style="width: 100%;" required>
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <label class="form-label">Categoría</label>
+                    <select name="categoria" id="editGastoCat" class="input-audit" style="width: 100%;" required>
+                        <option value="Servicios Públicos">Servicios Públicos</option>
+                        <option value="Alquiler">Alquiler</option>
+                        <option value="Sueldos">Sueldos</option>
+                        <option value="Suministros">Suministros</option>
+                        <option value="Otros">Otros</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 1.5rem;">
+                    <label class="form-label">Descripción</label>
+                    <input type="text" name="descripcion" id="editGastoDesc" class="input-audit" style="width: 100%;" required>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <button type="button" onclick="closeEditGastoModal()" class="btn btn-secondary" style="flex: 1; padding: 0.8rem; background: #333; color: white; border: none; border-radius: 8px; cursor: pointer;">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" style="flex: 1; padding: 0.8rem; background: var(--accent-blue); color: white; border: none; border-radius: 8px; font-weight: 700; cursor: pointer;">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/js/money-formatter.js"></script>
+    <script>
+        function openEditGastoModal(id, monto, cat, desc) {
+            document.getElementById('editGastoForm').action = '/gastos/editar/' + id;
+            document.getElementById('editGastoMonto').value = parseFloat(monto).toFixed(2);
+            document.getElementById('editGastoCat').value = cat;
+            document.getElementById('editGastoDesc').value = desc;
+            document.getElementById('editGastoModal').style.display = 'block';
+            if(window.formatMoneyInputs) window.formatMoneyInputs();
+        }
+        function closeEditGastoModal() { document.getElementById('editGastoModal').style.display = 'none'; }
+        window.onclick = function(event) { if (event.target == document.getElementById('editGastoModal')) closeEditGastoModal(); }
+    </script>
+</body>
+</html>

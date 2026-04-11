@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <title>Dashboard - Solucels Control Agentes Bancarios Agentes Bancarios</title>
+    <%- include('partials/head') %>
+</head>
+<body>
+    <%- include('partials/sidebar', { active: 'dashboard', user: user }) %>
+
+    <main class="main-content">
+        <div class="header">
+            <h1>Dashboard <%= user.rol === 'Admin' ? 'Global de Auditoría' : (user.rol === 'Contador' ? 'Auditoría Contable' : 'Local') %></h1>
+            <div class="user-profile">
+                <span style="color: var(--text-muted);"><%= user.username %> (<%= user.rol %>)</span>
+                <div style="width: 36px; height: 36px; border-radius: 8px; background: var(--bg-card); border: 1px solid #333; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; color: var(--accent-blue);">
+                    <%= user.username.charAt(0).toUpperCase() %>
+                </div>
+            </div>
+        </div>
+
+        <% if (user.rol === 'Admin' || user.rol === 'Contador') { %>
+            <!-- RESUMEN GLOBAL (HEADER) -->
+            <div class="global-stats-grid">
+                <% globalBancario.forEach(function(b) { 
+                    // Usar color de DB si existe, si no, buscar por nombre (fallback antes de reiniciar)
+                    let bColor = b.color;
+                    if(!bColor) {
+                        if(b.nombre.includes('Atlántida') || b.nombre.includes('BAC')) bColor = '#E3000F';
+                        else if(b.nombre.includes('Tigo') || b.nombre.includes('Money')) bColor = '#00377D';
+                        else if(b.nombre.includes('TENGO') || b.nombre.includes('Tengo')) bColor = '#6C2D91';
+                        else bColor = '#333';
+                    }
+                %>
+                    <div class="audit-stat-card" style="border-top: 4px solid <%= bColor %>;">
+                        <div class="audit-stat-label">Saldo en Cuenta: <%= b.nombre %></div>
+                        <div class="audit-stat-value" style="color: <%= bColor %>;">L <%= (b.saldo_cuenta || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></div>
+                        <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
+                            Efectivo en Tiendas: <span style="color: #fff;">L <%= Math.abs(b.efectivo_tiendas || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></span>
+                        </div>
+                    </div>
+                <% }); %>
+                
+                <!-- EFECTIVO EN TRÁNSITO -->
+                <div class="audit-stat-card" style="border-left: 4px solid var(--accent-blue);">
+                    <div class="audit-stat-label">Efectivo en Tránsito (Recolectado)</div>
+                    <div class="audit-stat-value text-blue-audit">L <%= Math.abs(enTransito || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></div>
+                </div>
+            </div>
+
+            <!-- FILTRO DE AUDITORÍA -->
+            <div class="filter-audit-bar">
+                <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">Auditoría al día:</span>
+                <form action="/" method="GET" style="display: flex; gap: 0.5rem;">
+                    <input type="date" name="fecha" class="input-audit" value="<%= filterFecha || new Date().toISOString().split('T')[0] %>">
+                    <button type="submit" class="btn btn-primary" style="padding: 0.6rem 1rem;">Filtrar</button>
+                </form>
+            </div>
+
+            <!-- MATRIZ DE AUDITORÍA: EFECTIVO SEGMENTADO -->
+            <div class="audit-matrix-container">
+                <div style="margin-bottom: 1.5rem; font-weight: 700; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px;">💰 Dinero para Depósito y Caja (Efectivo Físico)</div>
+                <table class="audit-table">
+                    <thead>
+                        <tr>
+                            <th>Tienda / Local</th>
+                            <% bancos.forEach(function(b) { 
+                                let bColor = b.color || '#333';
+                            %>
+                                <th style="border-bottom: 3px solid <%= bColor %> !important;">Efectivo <%= b.nombre %></th>
+                            <% }); %>
+                            <th>Efectivo en Caja</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% auditData.forEach(function(row) { %>
+                            <tr>
+                                <td class="amount-bold text-blue-audit"><%= row.name %></td>
+                                <% bancos.forEach(function(b) { %>
+                                    <td class="amount-bold">L <%= Math.abs(row.bancos[b.id] || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
+                                <% }); %>
+                                <td class="amount-bold">L <%= row.efectivo.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
+                            </tr>
+                        <% }); %>
+                        
+
+
+                        <!-- BALANCE NETO DE LA OPERACIÓN (LO QUE DEBE HABER EN EFECTIVO) -->
+                        <tr style="border-top: 2px solid var(--accent-blue);">
+                            <td class="amount-bold" style="color: #fff;">BALANCE LÍQUIDO OPERATIVO</td>
+                            <% globalBancario.forEach(function(gb) { %>
+                                <td class="amount-bold" style="color: #fff;">L <%= Math.abs(gb.total || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
+                            <% }); %>
+                            <td class="amount-bold">L <%= Math.abs(auditData.reduce((acc, row) => acc + row.efectivo, 0)).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- REFERENCIA DEL SISTEMA POR TIENDA -->
+            <% if(referenciasTiendas && referenciasTiendas.length > 0) { %>
+            <div style="margin-top: 2rem;">
+                <div style="margin-bottom: 1.25rem; font-weight: 700; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px;">📊 Referencia del Sistema por Tienda</div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem;">
+                    <% referenciasTiendas.forEach(function(ref) { %>
+                    <div style="background: var(--bg-card); border-radius: 14px; border: 1px solid rgba(255,255,255,0.06); overflow: hidden;">
+                        <div style="padding: 0.85rem 1.1rem; background: rgba(10,132,255,0.07); border-bottom: 1px solid rgba(10,132,255,0.15); display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-size: 0.9rem; font-weight: 800; color: var(--accent-blue);"><%= ref.tienda_nombre %></span>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Actual: <strong style="color:#fff;">L <%= (ref.efectivo_actual||0).toLocaleString('es-HN',{minimumFractionDigits:2}) %></strong></span>
+                        </div>
+                        <div style="padding: 0.85rem 1.1rem;">
+                            <div style="font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.6rem;">Inicial + Operaciones del Día</div>
+                            <% ref.bancos.forEach(function(b) { %>
+                            <% if(b.total_esperado > 0 || b.inicial > 0) { %>
+                            <div style="display:flex; justify-content:space-between; align-items:center; padding:0.45rem 0.7rem; margin-bottom:0.3rem; border-radius:7px; background:rgba(255,255,255,0.03); border-left:3px solid <%= b.banco_color %>;">
+                                <div>
+                                    <span style="font-size:0.8rem; color:<%= b.banco_color %>; font-weight:600; display:block;"><%= b.banco_nombre %></span>
+                                    <span style="font-size:0.68rem; color:var(--text-muted);">Ini: L <%= b.inicial.toLocaleString('es-HN',{minimumFractionDigits:2}) %> &middot; Ops: <span style="color:<%= b.neto >= 0 ? '#34C759' : '#FF453A' %>"><%= b.neto >= 0 ? '+' : '' %><%= b.neto.toLocaleString('es-HN',{minimumFractionDigits:2}) %></span></span>
+                                </div>
+                                <span style="font-size:0.9rem; font-weight:800;">L <%= b.total_esperado.toLocaleString('es-HN',{minimumFractionDigits:2}) %></span>
+                            </div>
+                            <% } %>
+                            <% }); %>
+                            <div style="display:flex; justify-content:space-between; padding:0.55rem 0.7rem; border-radius:7px; background:rgba(10,132,255,0.08); border:1px solid rgba(10,132,255,0.2); margin-top:0.5rem;">
+                                <span style="font-size:0.82rem; font-weight:800; color:var(--accent-blue);">TOTAL ESPERADO</span>
+                                <span style="font-size:0.95rem; font-weight:900; color:var(--accent-blue);">L <%= ref.totalEsperado.toLocaleString('es-HN',{minimumFractionDigits:2}) %></span>
+                            </div>
+                        </div>
+                    </div>
+                    <% }); %>
+                </div>
+            </div>
+            <% } %>
+
+        <% } else { %>
+            <!-- VISTA POS PARA CAJERO (DASHBOARD INFORMATIVO) -->
+            <div style="max-width: 800px; margin: 0 auto;">
+                <div class="store-card" style="padding: 2rem; border: 2px solid var(--accent-blue);">
+                    <div style="font-size: 0.9rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 2px; margin-bottom: 0.75rem;">Estado de Operaciones</div>
+                    <h2 style="font-size: 1.8rem; margin-bottom: 1.5rem;"><%= stores[0].name %></h2>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                        <div style="background: <%= apertura ? 'rgba(52, 199, 89, 0.1)' : 'rgba(142, 142, 147, 0.1)' %>; padding: 1.25rem; border-radius: 14px;">
+                            <div style="color: <%= apertura ? '#34C759' : '#8E8E93' %>; font-size: 0.75rem; font-weight: 700; margin-bottom: 0.4rem; text-transform: uppercase;">Estado de Caja</div>
+                            <div style="font-size: 1.1rem; font-weight: 800;"><%= apertura ? '🟢 ABIERTA' : '⚪ CERRADA' %></div>
+                        </div>
+                        <div style="background: rgba(10, 132, 255, 0.1); padding: 1.25rem; border-radius: 14px;">
+                            <div style="color: var(--accent-blue); font-size: 0.75rem; font-weight: 700; margin-bottom: 0.4rem; text-transform: uppercase;">Efectivo Actual</div>
+                            <div style="font-size: 1.1rem; font-weight: 800;">L <%= (stores[0].cash || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></div>
+                        </div>
+                    </div>
+
+                    <!-- SALDO INICIAL POR BANCO (DE LA APERTURA) -->
+                    <% if(apertura && aperturaBancos && Object.keys(aperturaBancos).length > 0) { %>
+                    <div style="margin-bottom: 1.5rem;">
+                        <div style="font-size: 0.72rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.6rem;">🏦 Saldo Inicial por Banco (Apertura)</div>
+                        <% 
+                            let totalInicialApertura = 0;
+                            bancos.forEach(b => {
+                                const ini = parseFloat(aperturaBancos[b.id] || 0);
+                                totalInicialApertura += ini;
+                            });
+                        %>
+                        <% bancos.forEach(b => { %>
+                        <% if(aperturaBancos[b.id] > 0) { %>
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding:0.45rem 0.7rem; margin-bottom:0.3rem; border-radius:7px; background:rgba(255,255,255,0.03); border-left:3px solid <%= b.color||'#555' %>;">
+                            <span style="font-size:0.8rem; color:<%= b.color||'#aaa' %>; font-weight:600;"><%= b.nombre %></span>
+                            <span style="font-size:0.85rem; font-weight:700;">L <%= parseFloat(aperturaBancos[b.id]||0).toLocaleString('es-HN',{minimumFractionDigits:2}) %></span>
+                        </div>
+                        <% } %>
+                        <% }); %>
+                        <div style="display:flex; justify-content:space-between; padding:0.5rem 0.7rem; border-radius:7px; background:rgba(10,132,255,0.07); border:1px solid rgba(10,132,255,0.2); margin-top:0.4rem;">
+                            <span style="font-size:0.8rem; font-weight:800; color:var(--accent-blue);">TOTAL INICIAL</span>
+                            <span style="font-size:0.92rem; font-weight:900; color:var(--accent-blue);">L <%= totalInicialApertura.toLocaleString('es-HN',{minimumFractionDigits:2}) %></span>
+                        </div>
+                    </div>
+                    <% } %>
+
+                    <a href="/operar/<%= stores[0].id %>" class="btn btn-primary" style="width: 100%; padding: 1.5rem; font-size: 1.3rem; border-radius: 16px; font-weight: 800; box-shadow: 0 10px 30px rgba(10, 132, 255, 0.3);">
+                        ⚡ IR A TERMINAL POS
+                    </a>
+                </div>
+            </div>
+        <% } %>
+    </main>
+</body>
+</html>

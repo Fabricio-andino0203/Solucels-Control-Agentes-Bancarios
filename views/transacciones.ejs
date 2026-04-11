@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <%- include('partials/head') %>
+    <title>Transacciones - Solucels Control Agentes Bancarios</title>
+    <style>
+        .filter-bar {
+            display: flex; gap: 1rem; margin-bottom: 1.5rem; background: var(--bg-card); padding: 1rem; border-radius: 8px; flex-wrap: wrap;
+        }
+        .filter-control {
+            background: #121212; border: 1px solid #333; color: white; padding: 0.5rem; border-radius: 4px; font-family: 'Inter';
+        }
+        table {
+            width: 100%; border-collapse: collapse; background: var(--bg-card); border-radius: 8px; overflow: hidden;
+        }
+        th, td {
+            padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.9rem;
+        }
+        th { font-weight: 600; color: var(--text-muted); background: rgba(0,0,0,0.2); }
+        .type-badge { padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
+        .type-ingreso { background: rgba(40, 167, 69, 0.2); color: #28a745; }
+        .type-retiro { background: rgba(220, 53, 69, 0.2); color: #dc3545; }
+        .type-pago { background: rgba(23, 162, 184, 0.2); color: #17a2b8; }
+        .type-gasto { background: rgba(255, 193, 7, 0.2); color: #ffc107; }
+        .type-deposito { background: rgba(10, 132, 255, 0.2); color: var(--accent-blue); }
+        .btn-action { background: none; border: none; cursor: pointer; padding: 0.4rem; border-radius: 4px; transition: all 0.2s; }
+        .btn-edit { color: var(--accent-blue); }
+        .btn-edit:hover { background: rgba(10, 132, 255, 0.1); }
+        .btn-delete { color: #dc3545; }
+        .btn-delete:hover { background: rgba(220, 53, 69, 0.1); }
+        
+        /* Modal Styles */
+        .modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); }
+        .modal-content { background: var(--bg-card); margin: 10% auto; padding: 2rem; border-radius: 16px; width: 90%; max-width: 450px; border: 1px solid #333; }
+        .modal-header { font-size: 1.2rem; font-weight: 700; margin-bottom: 1.5rem; color: var(--accent-blue); display: flex; justify-content: space-between; align-items: center; }
+        .close-modal { color: var(--text-muted); cursor: pointer; font-size: 1.5rem; }
+    </style>
+</head>
+<body>
+    <%- include('partials/sidebar', { active: 'transacciones', user: user }) %>
+    <main class="main-content">
+        <div class="header">
+            <h1>Registro Histórico</h1>
+            <div class="user-profile">
+                <span><%= user.username %> (<%= user.rol %>)</span>
+                <a href="/logout" style="color: #E3000F; margin-left: 1rem;">Salir</a>
+            </div>
+        </div>
+
+        <div class="filter-bar">
+            <% if(user && user.rol !== 'Cajero') { %>
+                <select class="filter-control" id="filt-tienda">
+                    <option value="">Todas las Tiendas</option>
+                    <% tiendas.forEach(t => { %> <option value="<%= t.nombre %>"><%= t.nombre %></option> <% }) %>
+                </select>
+            <% } %>
+            <select class="filter-control" id="filt-banco">
+                <option value="">Todos los Bancos</option>
+                <% bancos.forEach(b => { %> <option value="<%= b.nombre %>"><%= b.nombre %></option> <% }) %>
+            </select>
+            <input type="date" class="filter-control" id="filt-fecha">
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table id="txTable">
+                <thead>
+                    <tr>
+                        <th>Fecha/Hora</th>
+                        <th>Tienda</th>
+                        <th>Usuario</th>
+                        <th>Banco</th>
+                        <th>Tipo</th>
+                        <th>Monto Efectivo (L)</th>
+                        <th>Monto Banco (L)</th>
+                        <th>Referencia</th>
+                        <% if(user.rol !== 'Cajero') { %><th>Acciones</th><% } %>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% transacciones.forEach(tx => { 
+                        let cls = '';
+                        if(tx.tipo === 'Ingreso') cls='type-ingreso';
+                        else if(tx.tipo === 'Retiro') cls='type-retiro';
+                        else if(tx.tipo === 'Pago Servicio') cls='type-pago';
+                        else if(tx.tipo === 'Gasto') cls='type-gasto';
+                        else cls='type-deposito';
+                    %>
+                    <tr>
+                        <td><%= new Date(tx.fecha_hora).toLocaleString('es-HN') %></td>
+                        <td><%= tx.tienda_nombre %></td>
+                        <td><%= tx.username %></td>
+                        <td><%= tx.banco_nombre || '-' %></td>
+                        <td><span class="type-badge <%= cls %>"><%= tx.tipo %></span></td>
+                        <td style="color: <%= tx.monto_efectivo >= 0 ? '#28a745' : '#dc3545' %>"><%= tx.monto_efectivo > 0 ? '+' : '' %><%= tx.monto_efectivo.toFixed(2) %></td>
+                        <td style="color: <%= tx.monto_banco >= 0 ? '#28a745' : '#dc3545' %>"><%= tx.monto_banco > 0 ? '+' : '' %><%= tx.monto_banco.toFixed(2) %></td>
+                        <td><%= tx.referencia || '-' %></td>
+                        <% if(user.rol !== 'Cajero') { %>
+                        <td>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button class="btn-action btn-edit" onclick="openEditModal('<%= tx.id %>', '<%= Math.abs(tx.monto_efectivo) + Math.abs(tx.monto_banco) %>', '<%= tx.referencia %>')" title="Editar">✎</button>
+                                <form action="/transacciones/eliminar/<%= tx.id %>" method="POST" style="display:inline;" onsubmit="return confirm('¿Está SEGURO de eliminar esta transacción? Los saldos se revertirán automáticamente.')">
+                                    <button type="submit" class="btn-action btn-delete" title="Eliminar">🗑</button>
+                                </form>
+                            </div>
+                        </td>
+                        <% } %>
+                    </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <!-- Modal Editar -->
+    <div id="editModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span>Editar Transacción</span>
+                <span class="close-modal" onclick="closeEditModal()">&times;</span>
+            </div>
+            <form id="editForm" method="POST">
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">Monto Original</label>
+                    <input type="text" name="monto" id="editMonto" class="filter-control money-input" style="width: 100%; padding: 0.8rem;" required>
+                </div>
+                <div style="margin-bottom: 2rem;">
+                    <label style="display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem;">Referencia / Descripción</label>
+                    <input type="text" name="referencia" id="editRef" class="filter-control" style="width: 100%; padding: 0.8rem;">
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <button type="button" onclick="closeEditModal()" class="filter-control" style="flex: 1; cursor: pointer;">Cancelar</button>
+                    <button type="submit" class="filter-control" style="flex: 1; background: var(--accent-blue); border: none; font-weight: 700; cursor: pointer;">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="/js/money-formatter.js"></script>
+    <script>
+        function openEditModal(id, monto, ref) {
+            document.getElementById('editForm').action = '/transacciones/editar/' + id;
+            document.getElementById('editMonto').value = parseFloat(monto).toFixed(2);
+            document.getElementById('editRef').value = ref === '-' ? '' : ref;
+            document.getElementById('editModal').style.display = 'block';
+            if(window.formatMoneyInputs) window.formatMoneyInputs(); 
+        }
+
+        function closeEditModal() {
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            if (event.target == document.getElementById('editModal')) closeEditModal();
+        }
+
+        // Simple client-side filtering matching the clean aesthetic requirements
+        document.querySelectorAll('.filter-control').forEach(el => {
+            el.addEventListener('change', filterTable);
+            el.addEventListener('input', filterTable);
+        });
+
+        function filterTable() {
+            const tienda = document.getElementById('filt-tienda') ? document.getElementById('filt-tienda').value.toLowerCase() : '';
+            const banco = document.getElementById('filt-banco').value.toLowerCase();
+            const fecha = document.getElementById('filt-fecha').value;
+
+            const rows = document.querySelectorAll('#txTable tbody tr');
+            rows.forEach(row => {
+                const rowDateRaw = row.cells[0].innerText; 
+                // Convierte "dd/mm/yyyy, hh:mm" a "yyyy-mm-dd" para comparar simple
+                const rowDateSplit = rowDateRaw.split(',')[0].split('/');
+                let rowDateFormatted = '';
+                if(rowDateSplit.length === 3) rowDateFormatted = `${rowDateSplit[2]}-${rowDateSplit[1].padStart(2,'0')}-${rowDateSplit[0].padStart(2,'0')}`;
+                
+                const rowTienda = row.cells[1].innerText.toLowerCase();
+                const rowBanco = row.cells[3].innerText.toLowerCase();
+
+                const matchTienda = tienda === '' || rowTienda.includes(tienda);
+                const matchBanco = banco === '' || rowBanco.includes(banco);
+                const matchFecha = fecha === '' || rowDateFormatted === fecha;
+
+                if (matchTienda && matchBanco && matchFecha) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+    </script>
+</body>
+</html>

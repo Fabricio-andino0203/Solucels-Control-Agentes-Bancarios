@@ -1,0 +1,62 @@
+<nav class="sidebar" data-html2canvas-ignore="true">
+    <div class="brand" style="padding: 0 0.5rem; margin-bottom: 2rem;">
+        <img src="/logo.png" alt="Solucels Control Agentes Bancarios" class="logo-sidebar">
+    </div>
+    
+    <ul class="nav-menu" style="flex: 1;">
+        <li class="nav-item">
+            <a href="/" class="nav-link <%= typeof active !== 'undefined' && active === 'dashboard' ? 'active' : '' %>">
+                <span style="margin-right: 12px;">📊</span> Dashboard Global
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="/transacciones" class="nav-link <%= typeof active !== 'undefined' && active === 'transacciones' ? 'active' : '' %>">
+                <span style="margin-right: 12px;">💸</span> Transacciones
+            </a>
+        </li>
+        <% if(user && (user.rol === 'Admin' || user.rol === 'Contador')) { %>
+        <li class="nav-item">
+            <a href="/tesoreria" class="nav-link <%= typeof active !== 'undefined' && active === 'tesoreria' ? 'active' : '' %>">
+                <span style="margin-right: 12px;">🪙</span> Tesorería Global
+            </a>
+        </li>
+        <% } %>
+        <li class="nav-item">
+            <a href="/cierres" class="nav-link <%= typeof active !== 'undefined' && active === 'cierres' ? 'active' : '' %>">
+                <span style="margin-right: 12px;">📋</span> Cierres de Caja
+            </a>
+        </li>
+        <% if(user && (user.rol === 'Admin' || user.rol === 'Contador')) { %>
+        <li class="nav-item">
+            <a href="/reportes" class="nav-link <%= typeof active !== 'undefined' && active === 'reportes' ? 'active' : '' %>">
+                <span style="margin-right: 12px;">📈</span> Reportes (PDF)
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="/usuarios" class="nav-link <%= typeof active !== 'undefined' && active === 'usuarios' ? 'active' : '' %>">
+                <span style="margin-right: 12px;">👥</span> Usuarios
+            </a>
+        </li>
+        <li class="nav-item">
+            <a href="/configuracion" class="nav-link <%= typeof active !== 'undefined' && active === 'configuracion' ? 'active' : '' %>">
+                <span style="margin-right: 12px;">⚙️</span> Configuración
+            </a>
+        </li>
+        <% } %>
+    </ul>
+
+    <div style="padding: 0 1rem; margin-top: auto;">
+        <% if (globalIsAdmin) { %>
+        <a href="/fast-switch" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.8rem; border-radius: 12px; margin-bottom: 0.5rem; background: var(--accent-blue); border-color: var(--accent-blue);">
+            <span style="margin-right: 8px;">⚡</span> Cambio Rápido
+        </a>
+        <% } %>
+        <a href="/logout" class="btn btn-danger" style="width: 100%; justify-content: center; padding: 0.8rem; border-radius: 12px;">
+            <span style="margin-right: 8px;">🚪</span> Salir
+        </a>
+        <div style="margin-top: 1rem; font-size: 0.7rem; color: var(--text-muted); text-align: center;">
+            Honduras Time: <%= new Date().toLocaleTimeString('es-HN', { hour: '2-digit', minute: '2-digit' }) %> - <%= new Date().toLocaleDateString('es-HN') %>
+            <div style="display: inline-block; width: 8px; height: 8px; background: #34C759; border-radius: 50%; margin-left: 5px;"></div>
+        </div>
+    </div>
+</nav>

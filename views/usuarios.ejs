@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <%- include('partials/head') %>
+    <title>Gestión de Usuarios - Solucels Control Agentes Bancarios</title>
+    <style>
+        .grid-split { display: grid; grid-template-columns: 1fr; gap: 2rem; }
+        @media(min-width: 900px){ .grid-split { grid-template-columns: 350px 1fr; } }
+        .panel-form { background: var(--bg-card); padding: 1.5rem; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
+        .form-control { width: 100%; padding: 0.8rem; background: #121212; border: 1px solid #333; color: white; border-radius: 4px; margin-bottom: 1rem; }
+        .btn-blue { background: var(--accent-blue); padding: 1rem; font-size: 1rem; font-weight: bold; border-radius: 8px; width: 100%; border: none; color: white; cursor: pointer; }
+        .btn-danger { background: #E3000F; padding: 0.5rem; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; background: var(--bg-card); border-radius: 8px; overflow: hidden;}
+        th, td { padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.9rem; }
+        th { font-weight: 600; color: var(--text-muted); background: rgba(0,0,0,0.2); }
+        .rol-badge { padding: 0.3rem 0.6rem; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
+        .rol-Admin { background: rgba(227,0,15,0.2); color: #E3000F; }
+        .rol-Contador { background: rgba(0,59,112,0.2); color: #00A3FF; }
+        .rol-Cajero { background: rgba(40,167,69,0.2); color: #28a745; }
+    </style>
+</head>
+<body>
+    <%- include('partials/sidebar', { active: 'usuarios', user: user }) %>
+    <main class="main-content">
+        <div class="header">
+            <h1>Gestión de Usuarios</h1>
+            <div class="user-profile">
+                <span><%= user.username %> (<%= user.rol %>)</span>
+                <a href="/logout" style="color: #E3000F; margin-left: 1rem;">Salir</a>
+            </div>
+        </div>
+
+        <div class="grid-split">
+            <div class="panel-form">
+                <% if(user && user.rol === 'Admin') { %>
+                <h2 style="font-size: 1.2rem; margin-bottom: 1.5rem; color: var(--accent-blue);">Crear Nuevo Usuario</h2>
+                <form action="/usuarios/nuevo" method="POST">
+                    <label class="form-control" style="border:none; padding:0; background:transparent;">Nombre de Usuario</label>
+                    <input type="text" name="username" class="form-control" placeholder="Ej: maria_cajera" required autocomplete="off">
+                    
+                    <label class="form-control" style="border:none; padding:0; background:transparent;">Contraseña Temporal</label>
+                    <input type="text" name="password" class="form-control" placeholder="Ej: 1234" required>
+                    
+                    <label class="form-control" style="border:none; padding:0; background:transparent;">Rol en el Sistema</label>
+                    <select name="rol" class="form-control" id="rolSelect" onchange="toggleStore()" required>
+                        <option value="Cajero">Cajero Local</option>
+                        <option value="Contador">Contador Global</option>
+                        <option value="Admin">Administrador</option>
+                    </select>
+                    
+                    <div id="storeSelection">
+                        <label class="form-control" style="border:none; padding:0; background:transparent;">Tienda Asignada</label>
+                        <select name="tienda_id" class="form-control">
+                            <% tiendas.forEach(t => { %>
+                                <option value="<%= t.id %>"><%= t.nombre %></option>
+                            <% }) %>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn-blue" style="margin-top: 1rem;">Añadir Usuario</button>
+                </form>
+                <% } else { %>
+                <h2 style="font-size: 1.1rem; color: var(--text-muted);">Vista de Consulta</h2>
+                <p style="font-size: 0.85rem; margin-top: 0.5rem;">Como Contador, puede visualizar la lista de usuarios y sus niveles de acceso, pero no realizar modificaciones.</p>
+                <% } %>
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Nivel de Rol</th>
+                            <th>Tienda Asignada</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% usuarios.forEach(u => { %>
+                        <tr>
+                            <td style="font-weight: 500;"><%= u.username %></td>
+                            <td><span class="rol-badge rol-<%= u.rol %>"><%= u.rol %></span></td>
+                            <td><%= u.tienda_nombre || 'Todas (Acceso Global)' %></td>
+                            <td>
+                                <% if(u.username !== 'admin' && user.rol === 'Admin') { %>
+                                <form action="/usuarios/eliminar" method="POST" style="display:inline;">
+                                    <input type="hidden" name="id" value="<%= u.id %>">
+                                    <button type="submit" class="btn-danger" onclick="return confirm('¿Seguro que deseas eliminar a <%= u.username %>?')">Borrar</button>
+                                </form>
+                                <% } else if (u.username === 'admin') { %>
+                                <span style="color:var(--text-muted); font-size:0.8rem;">Bloqueado</span>
+                                <% } else { %>
+                                <span style="color:var(--text-muted); font-size:0.8rem;">Solo Lectura</span>
+                                <% } %>
+                            </td>
+                        </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function toggleStore() {
+            var rol = document.getElementById("rolSelect").value;
+            var storeDiv = document.getElementById("storeSelection");
+            if(rol === 'Cajero') {
+                storeDiv.style.display = 'block';
+            } else {
+                storeDiv.style.display = 'none';
+            }
+        }
+    </script>
+</body>
+</html>

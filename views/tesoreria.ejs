@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <title>Tesorería Global - Solucels Control Agentes Bancarios</title>
+    <%- include('partials/head') %>
+    <style>
+        .tesoreria-dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem; }
+        .card-tesoreria { background: var(--bg-card); border-radius: 16px; padding: 2rem; border: 1px solid #333; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+        .stat-val { font-size: 1.8rem; font-weight: 800; color: var(--accent-blue); margin: 0.5rem 0; }
+        
+        .tesoreria-main-grid { display: grid; grid-template-columns: 1fr; gap: 2rem; align-items: start; }
+        
+        /* Formularios en una sola fila */
+        .forms-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1rem; }
+        .form-group-custom { margin-bottom: 1.25rem; }
+        .form-label { display: block; margin-bottom: 0.6rem; color: var(--text-muted); font-size: 0.85rem; font-weight: 600; }
+        .form-control { width: 100%; border-radius: 10px; padding: 0.8rem 1rem; border: 1px solid #333; background: #121212; color: #fff; font-size: 1rem; transition: border-color 0.2s; box-sizing: border-box; }
+        .form-control:focus { outline: none; border-color: var(--accent-blue); }
+        
+        /* Select con flecha personalizada */
+        .select-custom { appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 1rem center; background-size: 0.65rem auto; padding-right: 2.5rem; }
+
+        .btn-tesoreria { width: 100%; padding: 1rem; border-radius: 10px; font-weight: 700; border: none; cursor: pointer; transition: transform 0.2s, opacity 0.2s; font-size: 1rem; }
+        .btn-tesoreria:hover { opacity: 0.9; }
+        .btn-tesoreria:active { transform: scale(0.98); }
+
+        .badge-tipo { padding: 4px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; }
+        .bg-ingreso { background: rgba(52, 199, 89, 0.1); color: #34C759; }
+        .bg-gasto { background: rgba(255, 69, 58, 0.1); color: #FF453A; }
+        .bg-entrega { background: rgba(175, 82, 222, 0.1); color: #AF52DE; }
+        .bg-deposito { background: rgba(0, 122, 255, 0.1); color: #0A84FF; }
+    </style>
+</head>
+<body>
+    <%- include('partials/sidebar', { active: 'tesoreria', user: user }) %>
+    <main class="main-content">
+        <div class="header">
+            <h1>🪙 Tesorería Global</h1>
+            <div class="user-profile">
+                <span style="color: var(--text-muted);"><%= user.username %></span>
+            </div>
+        </div>
+
+        <!-- RESUMEN DE SALDOS -->
+        <div class="tesoreria-dashboard">
+            <div class="card-tesoreria" style="grid-row: span 2;">
+                <div style="color: var(--text-muted); font-size: 0.9rem; font-weight: 600; margin-bottom: 1.25rem;">Efectivo en Tesorería (Base por Banco)</div>
+                
+                <div style="display: flex; flex-direction: column; gap: 0.6rem;">
+                    <% saldosPorBanco.forEach(function(s) { %>
+                        <% if (s.saldo !== 0) { %>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; background: rgba(255,255,255,0.03); border-left: 4px solid <%= s.color %>; border-radius: 8px;">
+                            <span style="font-size: 0.85rem; font-weight: 700; color: <%= s.color %>;"><%= s.nombre %></span>
+                            <span style="font-weight: 800; font-size: 1rem; color: <%= s.saldo >= 0 ? '#fff' : '#FF453A' %>;">
+                                L <%= s.saldo.toLocaleString('es-HN', {minimumFractionDigits: 2}) %>
+                            </span>
+                        </div>
+                        <% } %>
+                    <% }); %>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; padding: 1rem 0.8rem; background: rgba(10, 132, 255, 0.1); border: 1px solid rgba(10, 132, 255, 0.2); border-radius: 10px;">
+                    <span style="font-weight: 900; font-size: 0.9rem; color: var(--accent-blue); text-transform: uppercase;">Total en Tesorería</span>
+                    <span style="font-size: 1.6rem; font-weight: 900; color: var(--accent-blue);">L <%= saldoTesoreriaTotal.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></span>
+                </div>
+            </div>
+
+            <div class="card-tesoreria" style="display: flex; flex-direction: column; justify-content: center; height: fit-content;">
+                <div style="color: var(--text-muted); font-size: 0.9rem; font-weight: 600;">Efectivo en Tránsito</div>
+                <div class="stat-val" style="color: #FF9F0A;">L <%= enTránsito.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></div>
+                <div style="font-size: 0.75rem; color: #555; margin-top: 0.25rem;">Dinero enviado por tiendas pendiente de recepción</div>
+            </div>
+        </div>
+
+        <div class="tesoreria-main-grid">
+            <!-- COLUMNA IZQUIERDA: HISTORIAL Y PENDIENTES -->
+            <div>
+                <div class="audit-matrix-container" style="margin-bottom: 2rem;">
+                    <div style="margin-bottom: 1.25rem; font-weight: 700; font-size: 1.1rem;">📜 Historial de Operaciones Centrales</div>
+                    <table class="audit-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Operación</th>
+                                <th>Detalle / Ref</th>
+                                <th>Origen/Banco</th>
+                                <th>Monto</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% historial.forEach(function(h) { %>
+                                <tr>
+                                    <td style="font-size: 0.8rem;"><%= h.fecha %></td>
+                                    <td>
+                                        <span class="badge-tipo <%= h.tipo_trans === 'Remesa Recibida' ? 'bg-ingreso' : (h.tipo_trans === 'Gasto Bancario' ? 'bg-gasto' : (h.tipo_trans === 'Depósito a Banco' ? 'bg-deposito' : 'bg-entrega')) %>">
+                                            <%= h.tipo_trans %>
+                                        </span>
+                                    </td>
+                                    <td style="font-size: 0.85rem; color: var(--text-muted);"><%= h.ref || '-' %></td>
+                                    <td><%= h.origen || 'Efectivo Cash' %></td>
+                                    <td class="amount-bold <%= h.tipo_trans === 'Remesa Recibida' ? 'text-blue-audit' : 'text-expense' %>">
+                                        <%= h.tipo_trans === 'Remesa Recibida' ? '+' : '-' %> L <%= h.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %>
+                                    </td>
+                                </tr>
+                            <% }); %>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="audit-matrix-container">
+                    <div style="margin-bottom: 1.25rem; font-weight: 700; font-size: 1.1rem; color: #FF453A;">💸 Depósitos por Pagar (Deudas)</div>
+                    <table class="audit-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Banco</th>
+                                <th>Monto</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% deudas.forEach(function(d) { %>
+                                <tr>
+                                    <td style="font-size: 0.8rem;"><%= d.fecha_hora %></td>
+                                    <td><%= d.banco_nombre %></td>
+                                    <td class="amount-bold" style="color: #FF453A;">L <%= d.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
+                                    <td>
+                                        <form action="/tesoreria/pagar-adelantado/<%= d.id %>" method="POST">
+                                            <button type="submit" class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.8rem; background: #FF453A; border-color: #FF453A;">Pagar Ahora</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            <% }); %>
+                            <% if(deudas.length === 0) { %>
+                                <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay deudas por depósitos adelantados.</td></tr>
+                            <% } %>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="audit-matrix-container">
+                    <div style="margin-bottom: 1.25rem; font-weight: 700; font-size: 1.1rem;">📦 Recepciones Pendientes</div>
+                    <table class="audit-table">
+                        <thead>
+                            <tr>
+                                <th>Origen</th>
+                                <th>Monto</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% remesasPendientes.forEach(function(r) { %>
+                                <tr>
+                                    <td><%= r.tienda_nombre %></td>
+                                    <td class="amount-bold">L <%= r.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
+                                    <td>
+                                        <form action="/tesoreria/recibir/<%= r.id %>" method="POST">
+                                            <button type="submit" class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">Confirmar</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            <% }); %>
+                            <% if(remesasPendientes.length === 0) { %>
+                                <tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay efectivo por recibir de tiendas.</td></tr>
+                            <% } %>
+                        </tbody>
+                    </table>
+                </div>
+               </div>
+        </div>
+
+        <!-- FILA DE FORMULARIOS (3 EN UNA FILA) -->
+        <div style="margin-top: 2rem;">
+            <div style="margin-bottom: 1.25rem; font-weight: 700; font-size: 1.1rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">⚙️ Acciones de Tesorería</div>
+            <div class="forms-row">
+                <!-- FORM 1: DEPÓSITO BANCARIO -->
+                <div class="card-tesoreria">
+                    <h3 style="margin-bottom: 1.5rem; font-size: 1.1rem; display: flex; align-items: center; gap: 10px;">
+                        <span>📥</span> Depósito Bancario
+                    </h3>
+                    <form action="/tesoreria/deposito-banco" method="POST">
+                        <div class="form-group-custom">
+                            <label class="form-label">Monto</label>
+                            <input type="text" name="monto" class="form-control money-input" placeholder="L 0.00" required>
+                        </div>
+                        <div class="form-group-custom">
+                            <label class="form-label">Efectivo de (Origen)</label>
+                            <select name="banco_origen" class="form-control select-custom">
+                                <option value="">--- Otros / Suelto ---</option>
+                                <% bancos.forEach(function(b) { %>
+                                    <option value="<%= b.id %>"><%= b.nombre %></option>
+                                <% }); %>
+                            </select>
+                        </div>
+                        <div class="form-group-custom">
+                            <label class="form-label">Cuenta Bancaria (Destino)</label>
+                            <select name="banco_destino" class="form-control select-custom" required>
+                                <% bancos.forEach(function(b) { %>
+                                    <option value="<%= b.id %>"><%= b.nombre %></option>
+                                <% }); %>
+                            </select>
+                        </div>
+                        <div class="form-group-custom">
+                            <label class="form-label">Referencia</label>
+                            <input type="text" name="referencia" class="form-control" placeholder="Ej: Remesa">
+                        </div>
+                        <div class="form-group-custom" style="display: flex; align-items: center; gap: 10px; background: rgba(255,159,10,0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,159,10,0.2);">
+                            <input type="checkbox" name="adelantado" id="adelantado" style="width: 20px; height: 20px;">
+                            <label for="adelantado" style="font-size: 0.85rem; font-weight: 700; color: #FF9F0A; cursor: pointer;">
+                                ¿Es Depósito Adelantado? <br>
+                                <span style="font-size: 0.7rem; font-weight: normal; color: #aaa;">(Quedará como deuda pendiente)</span>
+                            </label>
+                        </div>
+                        <button type="submit" class="btn-tesoreria" style="background: #34C759; color: white;">Confirmar Depósito</button>
+                    </form>
+                </div>
+
+                <!-- FORM 2: GASTO BANCARIO -->
+                <div class="card-tesoreria">
+                    <h3 style="margin-bottom: 1.5rem; font-size: 1.1rem; display: flex; align-items: center; gap: 10px;">
+                        <span>💸</span> Gasto Bancario
+                    </h3>
+                    <form action="/tesoreria/gasto" method="POST">
+                        <div class="form-group-custom">
+                            <label class="form-label">Monto</label>
+                            <input type="text" name="monto" class="form-control money-input" placeholder="L 0.00" required>
+                        </div>
+                        <div class="form-group-custom">
+                            <label class="form-label">Banco Origen</label>
+                            <select name="banco_id" class="form-control select-custom" required>
+                                <% bancos.forEach(function(b) { %>
+                                    <option value="<%= b.id %>"><%= b.nombre %></option>
+                                <% }); %>
+                            </select>
+                        </div>
+                        <div class="form-group-custom">
+                            <label class="form-label">Categoría</label>
+                            <select name="categoria" class="form-control select-custom">
+                                <option value="Servicios">Servicios</option>
+                                <option value="Alquiler">Alquiler</option>
+                                <option value="Sueldos">Planilla</option>
+                                <option value="Otros" selected>Otros</option>
+                            </select>
+                        </div>
+                        <div class="form-group-custom">
+                            <label class="form-label">Descripción</label>
+                            <input type="text" name="descripcion" class="form-control" placeholder="Ej: Pago de internet" required>
+                        </div>
+                        <button type="submit" class="btn-tesoreria" style="background: var(--accent-blue); color: white;">Registrar Pago</button>
+                    </form>
+                </div>
+
+                <!-- FORM 3: ENTREGA PROPIETARIO -->
+                <div class="card-tesoreria">
+                    <h3 style="margin-bottom: 1.5rem; font-size: 1.1rem; display: flex; align-items: center; gap: 10px;">
+                        <span>🏦</span> Entrega Dueño
+                    </h3>
+                    <form action="/tesoreria/deposito-propietario" method="POST">
+                        <div class="form-group-custom">
+                            <label class="form-label">Monto</label>
+                            <input type="text" name="monto" class="form-control money-input" placeholder="L 0.00" required>
+                        </div>
+                        <div class="form-group-custom">
+                            <label class="form-label">Banco Origen de la Caja</label>
+                            <select name="banco_id" class="form-control select-custom">
+                                <option value="">--- Otros / Suelto ---</option>
+                                <% bancos.forEach(function(b) { %>
+                                    <option value="<%= b.id %>"><%= b.nombre %></option>
+                                <% }); %>
+                            </select>
+                        </div>
+                        <div class="form-group-custom">
+                            <label class="form-label">Nota</label>
+                            <input type="text" name="referencia" class="form-control" placeholder="Ej: Retiro" required>
+                        </div>
+                        <button type="submit" class="btn-tesoreria" style="background: #6C2D91; color: white;">Registrar Salida</button>
+                    </form>
+                </div>
+
+                <!-- FORM 4: ENVIAR EFECTIVO A TIENDA -->
+                <div class="card-tesoreria">
+                    <h3 style="margin-bottom: 1.5rem; font-size: 1.1rem; display: flex; align-items: center; gap: 10px;">
+                        <span>🚚</span> Enviar a Tienda
+                    </h3>
+                    <form action="/tesoreria/enviar-tienda" method="POST">
+                        <div class="form-group-custom">
+                            <label class="form-label">Monto</label>
+                            <input type="text" name="monto" class="form-control money-input" placeholder="L 0.00" required>
+                        </div>
+                        <div class="form-group-custom">
+                            <label class="form-label">Tienda Destino</label>
+                            <select name="tienda_id" class="form-control select-custom" required>
+                                <% tiendas.forEach(function(t) { %>
+                                    <option value="<%= t.id %>"><%= t.nombre %></option>
+                                <% }); %>
+                            </select>
+                        </div>
+                        <div class="form-group-custom">
+                            <label class="form-label">Fondo de (Origen)</label>
+                            <select name="banco_origen" class="form-control select-custom">
+                                <option value="">--- Otros / Suelto ---</option>
+                                <% bancos.forEach(function(b) { %>
+                                    <option value="<%= b.id %>"><%= b.nombre %></option>
+                                <% }); %>
+                            </select>
+                        </div>
+                        <div class="form-group-custom">
+                            <label class="form-label">Nota</label>
+                            <input type="text" name="referencia" class="form-control" placeholder="Ej: Resurtido Caja" required>
+                        </div>
+                        <button type="submit" class="btn-tesoreria" style="background: #FF9F0A; color: white;">Confirmar Envío</button>
+                    </form>
+                </div>
+            </div>
+       </div>
+            </div>
+        </div>
+    </main>
+    <script src="/js/money-formatter.js"></script>
+</body>
+</html>

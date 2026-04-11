@@ -1,0 +1,20 @@
+# Dependencias
+node_modules/
+
+# Base de datos local (Railway usará el volumen persistente)
+Solucels.db
+
+# Variables de entorno
+.env
+
+# Logs y Binarios
+cloudflared.exe
+*.log
+scratch/
+
+# Scripts de prueba y utilidades locales
+update_*.js
+Iniciar_*.bat
+
+# VSCode
+.vscode/

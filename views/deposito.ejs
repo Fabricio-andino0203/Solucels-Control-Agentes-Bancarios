@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <%- include('partials/head') %>
+    <title>Depósito a Cuenta - Solucels Control Agentes Bancarios</title>
+    <style>
+        .form-container { background-color: var(--bg-card); border-radius: 16px; padding: 2rem; max-width: 500px; margin: 2rem auto; }
+        .form-group { margin-bottom: 1.5rem; }
+        .form-label { display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem; }
+        .form-control { width: 100%; padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid #333; background: #121212; color: #fff; font-family: 'Inter'; }
+        .btn-submit { background-color: var(--accent-blue); width: 100%; padding: 1rem; font-size: 1.1rem; border-radius: 8px; border: none; color: white; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <main class="main-content" style="max-width: 800px; margin: 0 auto; width: 100%;">
+        <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+            <a href="/" style="color: var(--accent-blue); text-decoration: none; font-weight: 600;">← Volver</a>
+            <h1 style="font-size: 1.5rem; flex: 1;">Depósito a Cuenta Propietario</h1>
+        </div>
+
+        <div class="form-container">
+            <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.9rem;">
+                Esta acción sustraerá efectivo físico de la tienda seleccionada y rellenará el cupo virtual del banco asociado. No genera cobro de comisiones para clientes.
+            </p>
+            <form action="/transaccion/deposito" method="POST">
+                <div class="form-group">
+                    <label class="form-label">Desde la Tienda (Extracción Físico)</label>
+                    <select name="tienda_id" class="form-control" required>
+                        <option value="">-- Seleccionar Tienda --</option>
+                        <% tiendas.forEach(function(t) { %>
+                            <option value="<%= t.id %>"><%= t.nombre %> (L <%= t.efectivo_actual.toFixed(2) %>)</option>
+                        <% }); %>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Hacia el Banco (Recarga Virtual)</label>
+                    <select name="banco_id" class="form-control" required>
+                        <option value="">-- Seleccionar Banco --</option>
+                        <% bancos.forEach(function(b) { %>
+                            <option value="<%= b.id %>"><%= b.nombre %></option>
+                        <% }); %>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Monto (L)</label>
+                    <input type="text" name="monto" class="form-control money-input" placeholder="L 0.00" required autofocus>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Referencia / Comprobante</label>
+                    <input type="text" name="referencia" class="form-control" placeholder="No. Remesa / Boleta">
+                </div>
+
+                <button type="submit" class="btn-submit">Confirmar Depósito</button>
+            </form>
+        </div>
+    </main>
+    <script src="/js/money-formatter.js"></script>
+</body>
+</html>

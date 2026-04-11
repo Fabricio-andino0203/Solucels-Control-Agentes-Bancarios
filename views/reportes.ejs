@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <%- include('partials/head') %>
+    <title>Reportes - Solucels Control Agentes Bancarios</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        .btn-pdf { background: #E3000F; padding: 0.8rem 1.5rem; font-size: 1rem; border-radius: 8px; border: none; color: white; cursor: pointer; float: right; font-weight: bold;}
+        table { width: 100%; border-collapse: collapse; background: var(--bg-card); border-radius: 8px; overflow: hidden; margin-top: 2rem;}
+        th, td { padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.9rem; }
+        th { font-weight: 600; color: var(--text-muted); background: rgba(0,0,0,0.2); }
+    </style>
+</head>
+<body>
+    <%- include('partials/sidebar', { active: 'reportes', user: user }) %>
+    <main class="main-content">
+        <div class="header" data-html2canvas-ignore="true">
+            <h1>Módulo de Reportes Globales</h1>
+            <div class="user-profile">
+                <span><%= user.username %></span>
+                <a href="/logout" style="color: #E3000F; margin-left: 1rem;">Salir</a>
+            </div>
+        </div>
+
+        <div id="exportable-area">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h2 style="font-size: 1.5rem;">Historial Consolidado de Cierres Diarios</h2>
+                <button class="btn-pdf" onclick="generatePDF()" data-html2canvas-ignore="true">Descargar PDF</button>
+            </div>
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Tienda</th>
+                            <th>Cajero</th>
+                            <th>Desglose Declarado</th>
+                            <th>Dif. Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <% cierres.forEach(c => { %>
+                        <tr>
+                            <td><%= new Date(c.fecha).toLocaleString('es-HN') %></td>
+                            <td><%= c.tienda_nombre %></td>
+                            <td><%= c.username %></td>
+                            <td style="max-width: 300px; line-height: 1.5; font-size: 0.8rem;"><%= c.desglose_bancos %><br><i style="color:var(--text-muted);"><%= c.observaciones %></i></td>
+                            <td style="color: <%= c.diferencia >= 0 ? '#28a745' : '#dc3545' %>; font-weight: bold;">
+                                <%= c.diferencia > 0 ? '+' : '' %><%= c.diferencia.toFixed(2) %>
+                            </td>
+                        </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function generatePDF() {
+            const element = document.getElementById('exportable-area');
+            const opt = {
+                margin:       0.5,
+                filename:     'Reporte_Integral_Solucels.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2 },
+                jsPDF:        { unit: 'in', format: 'letter', orientation: 'landscape' }
+            };
+            html2pdf().set(opt).from(element).save();
+        }
+    </script>
+</body>
+</html>

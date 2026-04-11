@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <%- include('partials/head') %>
+    <title>Login - Solucels Control Agentes Bancarios</title>
+    <style>
+        body { justify-content: center; align-items: center; }
+        .login-card {
+            background-color: var(--bg-card);
+            border-radius: 16px;
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            border: 1px solid rgba(10, 132, 255, 0.2);
+            text-align: center;
+        }
+        .login-brand { color: var(--accent-blue); font-size: 1.8rem; font-weight: 700; margin-bottom: 2rem; }
+        .form-group { margin-bottom: 1.5rem; text-align: left; }
+        .form-label { display: block; margin-bottom: 0.5rem; color: var(--text-muted); font-size: 0.9rem; }
+        .form-control { 
+            width: 100%; padding: 0.8rem; border-radius: 8px; border: 1px solid #333; 
+            background: #121212; color: #fff; font-family: 'Inter', sans-serif;
+        }
+        .form-control:focus { outline: none; border-color: var(--accent-blue); }
+        .btn-submit { background-color: var(--accent-blue); width: 100%; padding: 1rem; font-size: 1.1rem; margin-top: 1rem; border-radius: 8px; border: none; color: white; cursor: pointer; font-weight: bold; }
+        .error-msg { background: rgba(227, 0, 15, 0.2); color: #ff6b6b; padding: 0.5rem; border-radius: 8px; margin-bottom: 1rem; font-size: 0.9rem;}
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <img src="/logo.png" alt="Solucels Control Agentes Bancarios" class="logo-login">
+        <div class="login-brand" style="margin-bottom: 2rem; font-size: 1.2rem; color: var(--accent-blue); font-weight: 700;">Solucels Control Agentes Bancarios</div>
+        <% if (locals.error) { %>
+            <div class="error-msg"><%= error %></div>
+        <% } %>
+        <form action="/login" method="POST">
+            <div class="form-group">
+                <label class="form-label">Usuario</label>
+                <input type="text" name="username" class="form-control" required autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Contraseña</label>
+                <input type="password" name="password" class="form-control" required>
+            </div>
+            <button type="submit" class="btn-submit">Ingresar</button>
+        </form>
+    </div>
+</body>
+</html>

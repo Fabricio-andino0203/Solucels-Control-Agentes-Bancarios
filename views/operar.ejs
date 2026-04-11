@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <title>Operar Tienda (POS) - Solucels Control Agentes Bancarios</title>
+    <%- include('partials/head') %>
+</head>
+<body class="pos-layout">
+    <%- include('partials/sidebar', { active: 'dashboard', user: user }) %>
+
+    <main class="main-content">
+        <div class="header">
+            <div>
+                <h1 style="margin-bottom: 0.25rem;">Terminal de Operaciones POS</h1>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Tienda: <strong><%= tienda.nombre %></strong></p>
+            </div>
+            <div style="display:flex; gap:10px;">
+                <% if (user && user.rol === 'Cajero') { %>
+                <button type="button" onclick="abrirModalCierre()" class="btn btn-warning" style="background: #E3A000; color:#fff; font-weight:bold; border:none; padding:10px 20px; border-radius:8px; cursor:pointer;">🔒 Corte de Caja</button>
+                <% } %>
+                <a href="/" class="btn btn-danger" style="background: #333;">X Cancelar</a>
+            </div>
+        </div>
+
+        <form action="/transaccion" method="POST" id="posForm">
+            <input type="hidden" name="tienda_id" value="<%= tienda.id %>">
+            
+            <div class="pos-container">
+                <!-- PANEL IZQUIERDO: INPUTS -->
+                <div class="pos-input-panel">
+                    <div class="pos-display-label">Entrada de Monto</div>
+                    <div class="pos-amount-display">
+                        <input type="text" name="monto" class="money-input" id="posAmount" placeholder="0.00" required autofocus autocomplete="off">
+                    </div>
+
+                    <div style="margin-bottom: 2rem;">
+                        <label class="pos-display-label">Referencia / Observación</label>
+                        <input type="text" name="referencia" class="form-control" placeholder="Ej: Pago de cliente...">
+                    </div>
+
+                    <div class="pos-display-label">Seleccionar Banco</div>
+                    <div class="bank-selector-grid">
+                        <% bancos.forEach(function(b) { 
+                             const isSelected = selectedBancoId && (b.id == selectedBancoId);
+                        %>
+                            <div class="bank-option-card <%= isSelected ? 'active' : '' %>" 
+                                 onclick="updateBankSelection(this, '<%= b.id %>', '<%= (b.saldo_virtual || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %>', '<%= (fisicoPorBanco[b.id] || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %>')">
+                                <div class="bank-dot" style="background: <%= b.color %>"></div>
+                                <div class="bank-name"><%= b.nombre %></div>
+                            </div>
+                        <% }); %>
+                    </div>
+                    <input type="hidden" name="banco_id" id="bancoIdInput" value="<%= selectedBancoId || '' %>">
+                    
+                    <div class="bank-balance-preview" style="display: flex; justify-content: space-between; text-align: left;">
+                        <div>
+                            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Saldo Virtual Disponible:</span>
+                            <div id="virtualBalance" style="font-weight: 800; font-size: 1.4rem; color: var(--accent-blue);">
+                                L <%= selectedBancoId ? (bancos.find(b => b.id == selectedBancoId)?.saldo_virtual || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) : '0.00' %>
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Efectivo Disponible:</span>
+                            <div id="physicalBalance" style="font-weight: 800; font-size: 1.4rem; color: #fff;">
+                                L <%= selectedBancoId ? (fisicoPorBanco[selectedBancoId] || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) : '0.00' %>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-pos-submit" style="width: 100%; margin-top: 1rem;">Procesar Operación</button>
+                </div>
+
+                <!-- PANEL DERECHO: GRID DE OPERACIONES -->
+                <div class="pos-ops-grid">
+                    <label class="pos-op-btn <%= 1 ? '' : 'selected' %>" onclick="selectOp(this)">
+                        <input type="radio" name="tipo" value="Depósito" required>
+                        <span class="icon">📥</span>
+                        <span class="label">DEPOSITO<br><small style="font-weight: 400; opacity: 0.7;">(+ Efec / - Banc)</small></span>
+                    </label>
+
+                    <label class="pos-op-btn" onclick="selectOp(this)">
+                        <input type="radio" name="tipo" value="Retiro">
+                        <span class="icon">📤</span>
+                        <span class="label">RETIRO (+ COM)<br><small style="font-weight: 400; opacity: 0.7;">(- Efec / + Banc)</small></span>
+                    </label>
+
+                    <label class="pos-op-btn" onclick="selectOp(this)">
+                        <input type="radio" name="tipo" value="Pago Servicio">
+                        <span class="icon">🧾</span>
+                        <span class="label">PAGO SERVICIOS<br><small style="font-weight: 400; opacity: 0.7;">(+ Efec / - Banc)</small></span>
+                    </label>
+
+                    <label class="pos-op-btn" onclick="selectOp(this)">
+                        <input type="radio" name="tipo" value="Pago Caja Empresarial">
+                        <span class="icon">🏢</span>
+                        <span class="label">CAJA EMPRESARIAL<br><small style="font-weight: 400; opacity: 0.7;">(+ Efec / - Banc)</small></span>
+                    </label>
+
+                    <label class="pos-op-btn" onclick="selectOp(this)">
+                        <input type="radio" name="tipo" value="Efectivo Entregado">
+                        <span class="icon">💰</span>
+                        <span class="label">EFECTIVO ENTREGADO<br><small style="font-weight: 400; opacity: 0.7;">(- Efec / En Auditoría)</small></span>
+                    </label>
+                </div>
+            </div>
+        </form>
+    </main>
+
+    <!-- MODAL DE CORTE DE CAJA -->
+    <% if (user && user.rol === 'Cajero') { %>
+    <div id="modalCierre" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:flex-start; overflow-y:auto; padding:2rem;">
+        <div style="background:var(--bg-card); width:100%; max-width:600px; border-radius:16px; border:1px solid rgba(255,255,255,0.1); position:relative; overflow:hidden;">
+            <button type="button" onclick="cerrarModalCierre()" style="position:absolute; top:1.2rem; right:1.5rem; background:none; border:none; color:#fff; font-size:1.5rem; cursor:pointer;">&times;</button>
+            <div style="padding:1.5rem; background:rgba(227,160,0,0.1); border-bottom:1px solid rgba(227,160,0,0.2);">
+                <h2 style="color:#E3A000; margin:0; font-size:1.4rem;">🔒 Corte de Caja Oficial</h2>
+                <p style="margin:0.2rem 0 0 0; font-size:0.85rem; color:var(--text-muted);">Realiza el arqueo y cierre de la caja actual.</p>
+                <div style="margin-top:0.5rem; font-size: 0.9rem; color: #fff;">
+                    Sistema espera: <strong style="color:var(--accent-blue);">L <%= tienda ? Math.abs(tienda.efectivo_actual).toLocaleString('es-HN',{minimumFractionDigits:2}) : '0.00' %></strong> en caja
+                </div>
+            </div>
+            <form action="/cierres/nuevo" method="POST" id="cierreFormModal" style="padding:1.5rem;">
+                
+                <!-- PASO 1 -->
+                <div style="margin-bottom:1.5rem;">
+                    <div style="font-weight:bold; font-size:1.1rem; margin-bottom:1rem; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:0.5rem;">1. ¿Cuánto tienes físico por banco?</div>
+                    <% 
+                    let totalEsperadoBancos = 0;
+                    bancos.forEach(b => { 
+                        let esperadoB = fisicoPorBanco[b.id] || 0;
+                        totalEsperadoBancos += esperadoB;
+                    %>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                        <div style="display:flex; flex-direction:column;">
+                            <span style="color:<%= b.color || '#aaa' %>; font-size:0.9rem; font-weight:600;"><%= b.nombre %></span>
+                            <span style="font-size:0.75rem; color:var(--text-muted);">Esperado: <strong>L <%= esperadoB.toLocaleString('es-HN', {minimumFractionDigits:2}) %></strong></span>
+                        </div>
+                        <input type="text" name="banco_<%= b.id %>" data-banco-nombre="<%= b.nombre %>" data-banco-color="<%= b.color %>" class="form-control money-input close-declare" style="width:150px; background:rgba(0,0,0,0.3); color:#fff;" placeholder="L 0.00" oninput="resumenCierreModal()">
+                    </div>
+                    <% }); %>
+                    <% 
+                    let totalGeneralEsperado = tienda ? Math.abs(tienda.efectivo_actual) : 0;
+                    let esperadoOtros = totalGeneralEsperado - totalEsperadoBancos;
+                    if (esperadoOtros < 0) esperadoOtros = 0; 
+                    %>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                        <div style="display:flex; flex-direction:column;">
+                            <span style="color:#888; font-size:0.9rem; font-weight:600;">Otros / Suelto</span>
+                            <span style="font-size:0.75rem; color:var(--text-muted);">Esperado: <strong>L <%= esperadoOtros.toLocaleString('es-HN', {minimumFractionDigits:2}) %></strong></span>
+                        </div>
+                        <input type="text" name="banco_Otros" data-banco-nombre="Otros / Suelto" data-banco-color="#888" class="form-control money-input close-declare" style="width:150px; background:rgba(0,0,0,0.3); color:#fff;" placeholder="L 0.00" oninput="resumenCierreModal()">
+                    </div>
+                </div>
+
+                <!-- RESUMEN AUTOMATICO -->
+                <div id="resumenDeclareModal" style="display:none; padding:1rem; border-radius:10px; background:rgba(0,0,0,0.2); border:1px solid #333; margin-bottom:1.5rem;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+                        <span style="color:var(--text-muted); font-size:0.9rem;">Total declarado:</span>
+                        <span id="totalDeclaradoModal" style="font-weight:bold; font-size:1rem;">L 0.00</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; border-top:1px solid #333; padding-top:0.5rem;">
+                        <span style="font-size:0.9rem; font-weight:bold;">Diferencia:</span>
+                        <span id="diferenciaLabelModal" style="font-weight:bold; font-size:1rem;"></span>
+                    </div>
+                    <div id="estadoLabelModal" style="margin-top:0.5rem; font-size:0.8rem; font-weight:bold; text-align:center; padding:0.4rem; border-radius:6px;"></div>
+                </div>
+
+                <!-- PASO 2 -->
+                <div style="margin-bottom:1.5rem;">
+                    <div style="font-weight:bold; font-size:1.1rem; margin-bottom:1rem; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:0.5rem;">2. ¿Cuánto entregas al Contador?</div>
+                    <% bancos.forEach(b => { %>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                        <span style="color:<%= b.color || '#aaa' %>; font-size:0.9rem; font-weight:600;"><%= b.nombre %></span>
+                        <input type="text" name="entrega_banco_<%= b.id %>" class="form-control money-input close-delivery" style="width:150px; background:rgba(0,0,0,0.3); color:#fff;" placeholder="L 0.00" oninput="resumenCierreModal()">
+                    </div>
+                    <% }); %>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                        <span style="color:#888; font-size:0.9rem; font-weight:600;">Otros / Suelto</span>
+                        <input type="text" name="entrega_banco_Otros" class="form-control money-input close-delivery" style="width:150px; background:rgba(0,0,0,0.3); color:#fff;" placeholder="L 0.00" oninput="resumenCierreModal()">
+                    </div>
+                </div>
+
+                <!-- RESUMEN FINAL -->
+                <div style="background:rgba(52,199,89,0.08); border:1px solid rgba(52,199,89,0.3); padding:1rem; border-radius:10px; margin-bottom:1.5rem;">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:0.9rem; font-weight:bold; color:#34C759;">Saldo que queda mañana:</span>
+                        <span id="saldoFinalCierreModal" style="font-size:1.2rem; font-weight:bold; color:#34C759;">L 0.00</span>
+                    </div>
+                    <div id="saldoFinalPorBancoContainer" style="margin-top: 1rem; display: none;"></div>
+                </div>
+
+                <div style="margin-bottom:1.5rem;">
+                    <label style="font-size:0.9rem; color:var(--text-muted); display:block; margin-bottom:0.5rem;">Observaciones (Opcional)</label>
+                    <input type="text" name="observaciones" class="form-control" style="background:rgba(0,0,0,0.3); color:#fff;" placeholder="Ej: Faltaron L 5 por...">
+                </div>
+
+                <button type="submit" class="btn btn-warning" style="width:100%; background:#E3A000; color:#fff; font-size:1.1rem; padding:12px; font-weight:bold; border:none; border-radius:8px;">✅ Registrar Cierre Oficial</button>
+
+            </form>
+        </div>
+    </div>
+    <% } %>
+
+    <script>
+        function updateBankSelection(element, bancoId, virtualBal, fisicoBal) {
+            document.querySelectorAll('.bank-option-card').forEach(p => p.classList.remove('active'));
+            element.classList.add('active');
+            document.getElementById('bancoIdInput').value = bancoId;
+            document.getElementById('virtualBalance').innerText = 'L ' + virtualBal;
+            document.getElementById('physicalBalance').innerText = 'L ' + fisicoBal;
+        }
+
+        function selectOp(element) {
+            document.querySelectorAll('.pos-op-btn').forEach(btn => btn.classList.remove('selected'));
+            element.classList.add('selected');
+            element.querySelector('input').checked = true;
+        }
+
+        // Formateador de moneda en tiempo real con COMAS de miles
+        document.addEventListener('input', function(e) {
+            if (e.target.classList.contains('money-input')) {
+                let value = e.target.value.replace(/\D/g, "");
+                if (value === "") {
+                    e.target.value = "";
+                    return;
+                }
+                
+                // Convertimos a número con 2 decimales
+                let floatValue = parseFloat(value) / 100;
+                
+                // Formateamos con comas y punto decimal 
+                e.target.value = new Intl.NumberFormat('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                }).format(floatValue);
+            }
+        });
+
+        // Al enviar el formulario cargado, debemos limpiar las comas para que sea un número válido para el backend
+        document.getElementById('posForm').addEventListener('submit', function(e) {
+            const bancoId = document.getElementById('bancoIdInput').value;
+            const opSeleccionada = document.querySelector('input[name="tipo"]:checked');
+            
+            if (opSeleccionada && opSeleccionada.value !== 'Efectivo Entregado' && !bancoId) {
+                e.preventDefault();
+                alert('⚠️ Debe seleccionar un banco antes de procesar la operación.');
+                return;
+            }
+
+            const amountInput = document.getElementById('posAmount');
+            amountInput.value = amountInput.value.replace(/,/g, ""); 
+        });
+
+        document.getElementById('cierreFormModal').addEventListener('submit', function(e) {
+            this.querySelectorAll('.money-input').forEach(inp => {
+                inp.value = (inp.value || '0').replace(/[^0-9.-]+/g, '');
+            });
+        });
+
+        // LOGICA DE CIERRE DE CAJA
+        const saldoCajaEsperado = <%= tienda ? Math.abs(tienda.efectivo_actual) : 0 %>;
+        function getModalVal(el) { 
+            if (!el || !el.value) return 0;
+            // Limpieza estricta: quitamos comas y todo lo que no sea dígito o punto
+            let clean = el.value.toString().replace(/,/g, '').replace(/[^\d.]/g, '');
+            let val = parseFloat(clean);
+            return isNaN(val) ? 0 : Math.round(val * 100) / 100;
+        }
+        
+        function resumenCierreModal() {
+            let trDeclarado = 0;
+            let trEntregaTotal = 0;
+            let htmlDesglose = '';
+
+            let bancosInputs = document.querySelectorAll('.close-declare');
+            let bancosEntregas = document.querySelectorAll('.close-delivery');
+
+            // Sumamos el total declarado
+            bancosInputs.forEach(inp => { trDeclarado += getModalVal(inp); });
+            // Sumamos las entregas
+            bancosEntregas.forEach(inp => { trEntregaTotal += getModalVal(inp); });
+
+            trDeclarado = Math.round(trDeclarado * 100) / 100;
+            trEntregaTotal = Math.round(trEntregaTotal * 100) / 100;
+
+            // Generamos el desglose visual para el saldo de mañana
+            for(let i=0; i<bancosInputs.length; i++) {
+                let declInp = bancosInputs[i];
+                let entreInp = bancosEntregas[i];
+                
+                let bName = declInp.getAttribute('data-banco-nombre');
+                let bColor = declInp.getAttribute('data-banco-color');
+                
+                let valDec = getModalVal(declInp);
+                let valEnt = getModalVal(entreInp);
+                let rest = Math.max(0, valDec - valEnt);
+                
+                if(rest > 0 || valDec > 0) {
+                    htmlDesglose += `
+                        <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-top:0.5rem; padding-top:0.5rem; border-top:1px dashed rgba(52,199,89,0.3);">
+                            <span style="color:${bColor || '#aaa'}; font-weight:600;">Saldo en ${bName}:</span>
+                            <span style="color:#fff; font-weight:bold;">L ${rest.toLocaleString('es-HN', {minimumFractionDigits:2})}</span>
+                        </div>
+                    `;
+                }
+            }
+
+            const resumen = document.getElementById('resumenDeclareModal');
+            resumen.style.display = 'block';
+            document.getElementById('totalDeclaradoModal').textContent = 'L ' + trDeclarado.toLocaleString('es-HN', {minimumFractionDigits:2});
+
+            const diff = Math.round((trDeclarado - saldoCajaEsperado) * 100) / 100;
+            const difEl = document.getElementById('diferenciaLabelModal');
+            const estEl = document.getElementById('estadoLabelModal');
+
+            if (Math.abs(diff) < 0.01) {
+                difEl.textContent = 'L 0.00 ✓'; difEl.style.color = '#34C759';
+                estEl.textContent = '✅ CUADRA PERFECTO'; estEl.style.cssText = 'background:rgba(52,199,89,0.1); color:#34C759; text-align:center; margin-top:0.5rem; padding:5px; border-radius:5px;';
+            } else if (diff < 0) {
+                difEl.textContent = '⚠ Faltan L ' + Math.abs(diff).toLocaleString('es-HN', {minimumFractionDigits:2}); difEl.style.color = '#FF453A';
+                estEl.textContent = 'FALTA EFECTIVO — Revisar'; estEl.style.cssText = 'background:rgba(255,69,58,0.1); color:#FF453A; text-align:center; margin-top:0.5rem; padding:5px; border-radius:5px;';
+            } else {
+                difEl.textContent = 'Sobran L ' + diff.toLocaleString('es-HN', {minimumFractionDigits:2}); difEl.style.color = '#FF9F0A';
+                estEl.textContent = '🔶 SOBRA EFECTIVO — Verificar'; estEl.style.cssText = 'background:rgba(255,159,10,0.1); color:#FF9F0A; text-align:center; margin-top:0.5rem; padding:5px; border-radius:5px;';
+            }
+
+            const containerList = document.getElementById('saldoFinalPorBancoContainer');
+            if (htmlDesglose.length > 0) {
+                containerList.innerHTML = htmlDesglose;
+                containerList.style.display = 'block';
+            } else {
+                containerList.innerHTML = '';
+                containerList.style.display = 'none';
+            }
+
+            const finalSaldo = Math.max(0, trDeclarado - trEntregaTotal);
+            document.getElementById('saldoFinalCierreModal').textContent = 'L ' + finalSaldo.toLocaleString('es-HN', {minimumFractionDigits:2});
+        }
+
+        function abrirModalCierre() { document.getElementById('modalCierre').style.display = 'flex'; }
+        function cerrarModalCierre() { document.getElementById('modalCierre').style.display = 'none'; }
+    </script>
+    <style>
+        /* Ajuste fino para la vista actual */
+        .pos-layout .main-content { overflow-y: hidden; }
+
+        .bank-selector-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 1.5rem;
+        }
+
+        .bank-option-card {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            padding: 12px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .bank-option-card:hover {
+            border-color: #555;
+            background: #252525;
+        }
+
+        .bank-option-card.active {
+            border-color: var(--accent-blue);
+            background: rgba(10, 132, 255, 0.1);
+        }
+
+        .bank-option-card .bank-name {
+            font-size: 0.85rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .bank-balance-preview {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 1.25rem;
+            border-radius: 16px;
+            border: 1px solid #222;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+    </style>
+</body>
+</html>

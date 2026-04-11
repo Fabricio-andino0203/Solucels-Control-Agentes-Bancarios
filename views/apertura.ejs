@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <title>Apertura de Caja - Solucels Control Agentes Bancarios</title>
+    <%- include('partials/head') %>
+    <style>
+        .apertura-wrapper {
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 2rem;
+        }
+        .apertura-card {
+            background: var(--bg-card);
+            border-radius: 28px;
+            padding: 3rem;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+        .section-title-apertura {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: var(--accent-blue);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .bank-grid-apertura {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+        .bank-input-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 20px;
+            padding: 1.75rem;
+            transition: all 0.2s;
+        }
+        .bank-input-card:focus-within {
+            border-color: var(--accent-blue);
+            background: rgba(10, 132, 255, 0.05);
+        }
+        .bank-label {
+            font-size: 0.85rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+            display: block;
+            letter-spacing: 0.5px;
+        }
+        .input-apertura {
+            width: 100%;
+            background: #000;
+            border: 1px solid #333;
+            border-radius: 14px;
+            padding: 1rem;
+            color: #fff;
+            font-size: 1.5rem;
+            font-weight: 800;
+            text-align: center;
+            outline: none;
+        }
+        .total-apertura-footer {
+            background: rgba(0,0,0,0.4);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 2.5rem;
+            text-align: center;
+            border: 1px dashed var(--glass-border);
+        }
+    </style>
+</head>
+<body>
+    <div class="apertura-wrapper">
+        <div class="apertura-card">
+            <div style="text-align: center; margin-bottom: 3.5rem;">
+                <div style="font-size: 4rem; margin-bottom: 1rem;">🏦</div>
+                <h1 style="font-size: 2.4rem; font-weight: 900; margin-bottom: 0.5rem;">Apertura de Caja</h1>
+                <p style="color: var(--text-muted); font-size: 1.1rem;">Registre el dinero físico disponible por banco para hoy.</p>
+            </div>
+
+            <form action="/apertura/nueva" method="POST">
+                <!-- SALDOS POR BANCO -->
+                <div class="section-title-apertura"><span>🏦</span> Efectivo por Banco</div>
+                <div class="bank-grid-apertura">
+                    <% bancos.forEach(b => { %>
+                        <div class="bank-input-card">
+                            <label class="bank-label" style="color: <%= b.color %>"><%= b.nombre %></label>
+                            <input type="text" name="banco_<%= b.id %>" class="input-apertura format-money" placeholder="0.00" required>
+                        </div>
+                    <% }) %>
+                </div>
+
+                <div class="total-apertura-footer">
+                    <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem;">Cálculo Total Automático</div>
+                    <div id="totalLabel" style="font-size: 2rem; font-weight: 900; color: var(--accent-blue);">L 0.00</div>
+                    <!-- Campo oculto para enviar el total a saldo_inicial_efectivo -->
+                    <input type="hidden" name="monto_efectivo" id="hiddenTotal" value="0">
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width: 100%; padding: 2rem; font-size: 1.5rem; border-radius: 20px; font-weight: 900; box-shadow: 0 10px 40px rgba(10, 132, 255, 0.3);">
+                    CONFIRMAR Y ABRIR CAJA
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const inputs = document.querySelectorAll('.format-money');
+        const totalLabel = document.getElementById('totalLabel');
+        const hiddenTotal = document.getElementById('hiddenTotal');
+
+        function calculateTotal() {
+            let total = 0;
+            inputs.forEach(input => {
+                let val = parseFloat(input.value.replace(/,/g, "")) || 0;
+                total += val;
+            });
+            totalLabel.innerText = "L " + new Intl.NumberFormat('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(total);
+            hiddenTotal.value = total;
+        }
+
+        inputs.forEach(input => {
+            input.addEventListener('input', function(e) {
+                let value = e.target.value.replace(/\D/g, "");
+                if (value === "") {
+                    e.target.value = "";
+                } else {
+                    let floatValue = parseFloat(value) / 100;
+                    e.target.value = new Intl.NumberFormat('en-US', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                    }).format(floatValue);
+                }
+                calculateTotal();
+            });
+        });
+    </script>
+</body>
+</html>
