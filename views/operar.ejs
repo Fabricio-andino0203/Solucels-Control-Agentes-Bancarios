@@ -133,7 +133,7 @@
                             <span style="color:<%= b.color || '#aaa' %>; font-size:0.9rem; font-weight:600;"><%= b.nombre %></span>
                             <span style="font-size:0.75rem; color:var(--text-muted);">Esperado: <strong>L <%= esperadoB.toLocaleString('es-HN', {minimumFractionDigits:2}) %></strong></span>
                         </div>
-                        <input type="text" name="banco_<%= b.id %>" data-banco-nombre="<%= b.nombre %>" data-banco-color="<%= b.color %>" class="form-control money-input close-declare" style="width:150px; background:rgba(0,0,0,0.3); color:#fff;" placeholder="L 0.00" oninput="resumenCierreModal()">
+                        <input type="text" name="banco_<%= b.id %>" data-banco-nombre="<%= b.nombre %>" data-banco-color="<%= b.color %>" class="form-control money-input close-declare" style="width:150px; background:rgba(0,0,0,0.3); color:#fff;" placeholder="L 0.00">
                     </div>
                     <% }); %>
                     <% 
@@ -146,7 +146,7 @@
                             <span style="color:#888; font-size:0.9rem; font-weight:600;">Otros / Suelto</span>
                             <span style="font-size:0.75rem; color:var(--text-muted);">Esperado: <strong>L <%= esperadoOtros.toLocaleString('es-HN', {minimumFractionDigits:2}) %></strong></span>
                         </div>
-                        <input type="text" name="banco_Otros" data-banco-nombre="Otros / Suelto" data-banco-color="#888" class="form-control money-input close-declare" style="width:150px; background:rgba(0,0,0,0.3); color:#fff;" placeholder="L 0.00" oninput="resumenCierreModal()">
+                        <input type="text" name="banco_Otros" data-banco-nombre="Otros / Suelto" data-banco-color="#888" class="form-control money-input close-declare" style="width:150px; background:rgba(0,0,0,0.3); color:#fff;" placeholder="L 0.00">
                     </div>
                 </div>
 
@@ -169,12 +169,12 @@
                     <% bancos.forEach(b => { %>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
                         <span style="color:<%= b.color || '#aaa' %>; font-size:0.9rem; font-weight:600;"><%= b.nombre %></span>
-                        <input type="text" name="entrega_banco_<%= b.id %>" class="form-control money-input close-delivery" style="width:150px; background:rgba(0,0,0,0.3); color:#fff;" placeholder="L 0.00" oninput="resumenCierreModal()">
+                        <input type="text" name="entrega_banco_<%= b.id %>" class="form-control money-input close-delivery" style="width:150px; background:rgba(0,0,0,0.3); color:#fff;" placeholder="L 0.00">
                     </div>
                     <% }); %>
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
                         <span style="color:#888; font-size:0.9rem; font-weight:600;">Otros / Suelto</span>
-                        <input type="text" name="entrega_banco_Otros" class="form-control money-input close-delivery" style="width:150px; background:rgba(0,0,0,0.3); color:#fff;" placeholder="L 0.00" oninput="resumenCierreModal()">
+                        <input type="text" name="entrega_banco_Otros" class="form-control money-input close-delivery" style="width:150px; background:rgba(0,0,0,0.3); color:#fff;" placeholder="L 0.00">
                     </div>
                 </div>
 
@@ -215,11 +215,17 @@
         }
 
         // Formateador de moneda en tiempo real con COMAS de miles
+        // IMPORTANTE: El formateador corre PRIMERO y luego llama resumenCierreModal()
+        // para que el resumen siempre lea el valor ya formateado correctamente.
         document.addEventListener('input', function(e) {
             if (e.target.classList.contains('money-input')) {
                 let value = e.target.value.replace(/\D/g, "");
                 if (value === "") {
                     e.target.value = "";
+                    // Si es campo de cierre, actualizar resumen
+                    if (e.target.classList.contains('close-declare') || e.target.classList.contains('close-delivery')) {
+                        resumenCierreModal();
+                    }
                     return;
                 }
                 
@@ -231,6 +237,11 @@
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
                 }).format(floatValue);
+
+                // Después de formatear, actualizar el resumen del cierre si aplica
+                if (e.target.classList.contains('close-declare') || e.target.classList.contains('close-delivery')) {
+                    resumenCierreModal();
+                }
             }
         });
 
