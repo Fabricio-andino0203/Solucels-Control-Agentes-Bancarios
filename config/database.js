@@ -21,4 +21,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
     }
 });
 
-module.exports = { db, dbPath };
+// Adjuntar dbPath al objeto db para que esté disponible donde se necesite
+db.dbPath = dbPath;
+
+module.exports = db;

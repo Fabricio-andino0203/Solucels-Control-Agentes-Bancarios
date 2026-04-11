@@ -3,7 +3,8 @@ const path = require('path');
 const fs = require('fs');
 const dotenv = require('dotenv');
 const session = require('express-session');
-const { db, dbPath } = require('./config/database');
+const db = require('./config/database');
+const dbPath = db.dbPath;
 
 dotenv.config();
 
