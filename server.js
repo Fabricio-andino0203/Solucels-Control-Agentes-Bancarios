@@ -1231,6 +1231,6 @@ app.post('/migrate-db',
     }
 );
 
-app.listen(PORT, () => {
-    console.log(`Servidor de Solucels Control corriendo en http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Servidor de Solucels Control corriendo en el puerto ${PORT}`);
 });
