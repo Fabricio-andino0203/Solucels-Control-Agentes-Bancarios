@@ -1200,35 +1200,6 @@ app.get('/api/status', (req, res) => {
 });
 
 
-// ==========================================
-// MIGRACIÓN TEMPORAL DE BASE DE DATOS
-// ==========================================
-app.post('/migrate-db',
-    express.raw({ type: 'application/octet-stream', limit: '100mb' }),
-    (req, res) => {
-        const secret = req.headers['x-migration-secret'];
-        const expectedSecret = process.env.MIGRATION_SECRET;
-        if (!expectedSecret || secret !== expectedSecret) {
-            return res.status(403).json({ error: 'No autorizado.' });
-        }
-        if (!req.body || req.body.length === 0) {
-            return res.status(400).json({ error: 'Archivo vacío recibido.' });
-        }
-        try {
-            db.close(() => {
-                const fs = require('fs');
-                fs.writeFileSync(dbPath, req.body);
-                console.log(`✅ Base de datos migrada: ${req.body.length} bytes escritos en ${dbPath}`);
-                res.json({ success: true, bytes: req.body.length, message: 'Migración exitosa. Reiniciando...' });
-                setTimeout(() => process.exit(0), 500);
-            });
-        } catch (err) {
-            console.error('❌ Error en migración:', err.message);
-            res.status(500).json({ error: err.message });
-        }
-    }
-);
-
 app.listen(PORT, () => {
     console.log(`Servidor de Solucels Control corriendo en http://localhost:${PORT}`);
 });
