@@ -11,6 +11,19 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+// Manejadores de errores globales para capturar crashes en Railway
+process.on('uncaughtException', (err) => {
+    console.error('❌ CRASH DETECTADO (uncaughtException):', err.message);
+    console.error(err.stack);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('❌ ERROR ASÍNCRONO (unhandledRejection):', reason);
+});
+
+console.log(`📡 Puerto detectado: ${PORT}`);
+console.log(`🏠 Host configurado: 0.0.0.0`);
+
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
@@ -1191,6 +1204,11 @@ app.get('/reportes', requireAuth, (req, res) => {
 });
 
 // Endpoint para verificación de estado del servidor (Health Check)
+// Ruta de diagnóstico pura (SIN base de datos)
+app.get('/test-online', (req, res) => {
+    res.send(`<h1>✅ Servidor Agentes ONLINE</h1><p>Versión: 1.0.1</p><p>Puerto: ${PORT}</p><p>Hora: ${getLocalTime()}</p>`);
+});
+
 app.get('/api/status', (req, res) => {
     db.get('SELECT 1 FROM usuarios LIMIT 1', [], (err, row) => {
         if (err) {
