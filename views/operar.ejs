@@ -250,7 +250,7 @@
             const bancoId = document.getElementById('bancoIdInput').value;
             const opSeleccionada = document.querySelector('input[name="tipo"]:checked');
             
-            if (opSeleccionada && opSeleccionada.value !== 'Efectivo Entregado' && !bancoId) {
+            if (opSeleccionada && !bancoId) {
                 e.preventDefault();
                 alert('⚠️ Debe seleccionar un banco antes de procesar la operación.');
                 return;
