@@ -92,14 +92,14 @@
                                 <tr>
                                     <td style="font-size: 0.8rem;"><%= h.fecha %></td>
                                     <td>
-                                        <span class="badge-tipo <%= h.tipo_trans === 'Remesa Recibida' ? 'bg-ingreso' : (h.tipo_trans === 'Gasto Bancario' ? 'bg-gasto' : (h.tipo_trans === 'Depósito a Banco' ? 'bg-deposito' : 'bg-entrega')) %>">
+                                        <span class="badge-tipo <%= (h.tipo_trans === 'Remesa Recibida' || h.tipo_trans === 'Traslado (Efectivo)') ? 'bg-ingreso' : (h.tipo_trans === 'Gasto Bancario' ? 'bg-gasto' : (h.tipo_trans === 'Depósito a Banco' || h.tipo_trans === 'Traslado (Solo Saldo)' ? 'bg-deposito' : 'bg-entrega')) %>">
                                             <%= h.tipo_trans %>
                                         </span>
                                     </td>
                                     <td style="font-size: 0.85rem; color: var(--text-muted);"><%= h.ref || '-' %></td>
                                     <td><%= h.origen || 'Efectivo Cash' %></td>
-                                    <td class="amount-bold <%= h.tipo_trans === 'Remesa Recibida' ? 'text-blue-audit' : 'text-expense' %>">
-                                        <%= h.tipo_trans === 'Remesa Recibida' ? '+' : '-' %> L <%= h.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %>
+                                    <td class="amount-bold <%= (h.tipo_trans === 'Remesa Recibida' || h.tipo_trans.startsWith('Traslado')) ? 'text-blue-audit' : 'text-expense' %>">
+                                        <%= (h.tipo_trans === 'Remesa Recibida' || h.tipo_trans.startsWith('Traslado')) ? '+' : '-' %> L <%= h.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %>
                                     </td>
                                 </tr>
                             <% }); %>
@@ -309,6 +309,39 @@
                             <input type="text" name="referencia" class="form-control" placeholder="Ej: Resurtido Caja" required>
                         </div>
                         <button type="submit" class="btn-tesoreria" style="background: #FF9F0A; color: white;">Confirmar Envío</button>
+                    </form>
+                </div>
+
+                <!-- FORM 5: TRASLADO / INYECCIÓN -->
+                <div class="card-tesoreria">
+                    <h3 style="margin-bottom: 1.5rem; font-size: 1.1rem; display: flex; align-items: center; gap: 10px;">
+                        <span>🔄</span> Traslado / Inyección
+                    </h3>
+                    <form action="/tesoreria/traslado" method="POST">
+                        <div class="form-group-custom">
+                            <label class="form-label">Monto</label>
+                            <input type="text" name="monto" class="form-control money-input" placeholder="L 0.00" required>
+                        </div>
+                        <div class="form-group-custom">
+                            <label class="form-label">Banco Destino</label>
+                            <select name="banco_id" class="form-control select-custom" required>
+                                <% bancos.forEach(function(b) { %>
+                                    <option value="<%= b.id %>"><%= b.nombre %></option>
+                                <% }); %>
+                            </select>
+                        </div>
+                        <div class="form-group-custom">
+                            <label class="form-label">Referencia / Nota</label>
+                            <input type="text" name="referencia" class="form-control" placeholder="Ej: Inyección de Capital" required>
+                        </div>
+                        <div class="form-group-custom">
+                            <label class="form-label">¿Afectar Efectivo?</label>
+                            <select name="tipo_traslado" class="form-control select-custom">
+                                <option value="solo_saldo">Solo Saldo (Virtual)</option>
+                                <option value="saldo_y_efectivo">Saldo y Efectivo (Suma a Tesorería)</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn-tesoreria" style="background: #007AFF; color: white;">Confirmar Traslado</button>
                     </form>
                 </div>
             </div>

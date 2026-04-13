@@ -434,16 +434,18 @@ app.get('/tesoreria', requireAdminOrContador, (req, res) => {
                 db.all(sqlHistorial, [], (err, historial) => {
                     db.all("SELECT * FROM bancos", [], (err, bancos) => {
                         const sqlSaldos = `
-                            SELECT b.id, b.nombre, b.color,
-                                   (SELECT COALESCE(SUM(monto), 0) FROM remesas WHERE estado = 'Recibido' AND banco_id = b.id) -
-                                   (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo != 'Gasto Bancario' AND banco_id = b.id) as saldo
-                            FROM bancos b
+                             SELECT b.id, b.nombre, b.color,
+                                    (SELECT COALESCE(SUM(monto), 0) FROM remesas WHERE estado = 'Recibido' AND banco_id = b.id) +
+                                    (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo = 'Traslado (Efectivo)' AND banco_id = b.id) -
+                                    (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo IN ('Depósito a Banco', 'Envío a Tienda', 'Entrega Dueño', 'Pago Depósito Adelantado') AND banco_id = b.id) as saldo
+                             FROM bancos b
                         `;
                         db.all(sqlSaldos, [], (err, saldos) => {
                             db.get(`
                                 SELECT 
-                                   (SELECT COALESCE(SUM(monto), 0) FROM remesas WHERE estado = 'Recibido' AND banco_id IS NULL) -
-                                   (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo != 'Gasto Bancario' AND banco_id IS NULL) as saldo
+                                   (SELECT COALESCE(SUM(monto), 0) FROM remesas WHERE estado = 'Recibido' AND banco_id IS NULL) +
+                                   (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo = 'Traslado (Efectivo)' AND banco_id IS NULL) -
+                                   (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo IN ('Depósito a Banco', 'Envío a Tienda', 'Entrega Dueño', 'Pago Depósito Adelantado') AND banco_id IS NULL) as saldo
                             `, [], (err, rowOtros) => {
                                 const otrosSaldo = rowOtros ? (rowOtros.saldo || 0) : 0;
                                 const saldosPorBanco = saldos || [];
@@ -576,6 +578,27 @@ app.post('/tesoreria/pagar-adelantado/:id', requireAdminOrContador, (req, res) =
             db.run("UPDATE depositos_adelantados SET estado = 'Pagado', fecha_pago = ? WHERE id = ?", [now, id]);
             db.run('COMMIT', () => res.redirect('/tesoreria'));
         });
+    });
+});
+
+app.post('/tesoreria/traslado', requireAdminOrContador, (req, res) => {
+    const { monto, banco_id, referencia, tipo_traslado } = req.body;
+    const montoNum = parseFloat((monto || '0').replace(/,/g, '')) || 0;
+    if (montoNum <= 0 || !banco_id) return res.status(400).send("Datos inválidos");
+    
+    const now = getLocalTime();
+    const tipoLog = tipo_traslado === 'saldo_y_efectivo' ? 'Traslado (Efectivo)' : 'Traslado (Solo Saldo)';
+    
+    db.serialize(() => {
+        db.run('BEGIN TRANSACTION');
+        // 1. Siempre incrementa el saldo virtual del banco
+        db.run("UPDATE saldos_bancarios SET saldo = saldo + ?, actualizado_en = ? WHERE banco_id = ?", [montoNum, now, banco_id]);
+        
+        // 2. Registrar en el log de tesorería (determina si afecta el cálculo de efectivo físico)
+        db.run("INSERT INTO tesoreria_log (tipo, monto, referencia, fecha_hora, banco_id) VALUES (?, ?, ?, ?, ?)", 
+               [tipoLog, montoNum, referencia || 'Traslado de Fondos', now, banco_id]);
+               
+        db.run('COMMIT', () => res.redirect('/tesoreria'));
     });
 });
 
