@@ -587,14 +587,19 @@ app.post('/tesoreria/traslado', requireAdminOrContador, (req, res) => {
     if (montoNum <= 0 || !banco_id) return res.status(400).send("Datos inválidos");
     
     const now = getLocalTime();
-    const tipoLog = tipo_traslado === 'saldo_y_efectivo' ? 'Traslado (Efectivo)' : 'Traslado (Solo Saldo)';
+    // Determinamos si afecta el efectivo físico para el cálculo de saldos en tesorería
+    const afectaEfectivo = (tipo_traslado === 'saldo_y_efectivo' || tipo_traslado === 'solo_efectivo');
+    const tipoLog = afectaEfectivo ? 'Traslado (Efectivo)' : 'Traslado (Solo Saldo)';
     
     db.serialize(() => {
         db.run('BEGIN TRANSACTION');
-        // 1. Siempre incrementa el saldo virtual del banco
-        db.run("UPDATE saldos_bancarios SET saldo = saldo + ?, actualizado_en = ? WHERE banco_id = ?", [montoNum, now, banco_id]);
         
-        // 2. Registrar en el log de tesorería (determina si afecta el cálculo de efectivo físico)
+        // 1. Solo incrementa el saldo virtual si NO es "Solo Efectivo"
+        if (tipo_traslado !== 'solo_efectivo') {
+            db.run("UPDATE saldos_bancarios SET saldo = saldo + ?, actualizado_en = ? WHERE banco_id = ?", [montoNum, now, banco_id]);
+        }
+        
+        // 2. Registrar en el log de tesorería
         db.run("INSERT INTO tesoreria_log (tipo, monto, referencia, fecha_hora, banco_id) VALUES (?, ?, ?, ?, ?)", 
                [tipoLog, montoNum, referencia || 'Traslado de Fondos', now, banco_id]);
                
