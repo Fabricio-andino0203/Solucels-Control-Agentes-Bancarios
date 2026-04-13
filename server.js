@@ -254,14 +254,23 @@ app.get('/', requireAuth, (req, res) => {
                                     SELECT MAX(id) FROM aperturas_caja WHERE tienda_id IN (${placeholders}) GROUP BY tienda_id
                                 )`, tiendaIds, (err, aperturas) => {
 
-                                    // Obtener transacciones por banco por tienda desde su ultima apertura
-                                    db.all(`
+                                    // Obtener transacciones por banco por tienda desde su ULTIMA APERTURA
+                                    // Usamos un LEFT JOIN para incluir transacciones sin banco (Suelto/Otros)
+                                    const sqlTxPorTienda = `
                                         SELECT t.tienda_id, t.banco_id, b.nombre as banco_nombre, b.color as banco_color,
                                                SUM(t.monto_efectivo) as neto_txn
                                         FROM transacciones t
-                                        JOIN bancos b ON t.banco_id = b.id
+                                        LEFT JOIN bancos b ON t.banco_id = b.id
+                                        JOIN (
+                                            SELECT tienda_id, MAX(fecha_hora) as ultima_apertura
+                                            FROM aperturas_caja
+                                            GROUP BY tienda_id
+                                        ) last_a ON t.tienda_id = last_a.tienda_id
+                                        WHERE t.fecha_hora >= last_a.ultima_apertura
                                         GROUP BY t.tienda_id, t.banco_id
-                                    `, [], (err, txPorTiendaBanco) => {
+                                    `;
+
+                                    db.all(sqlTxPorTienda, [], (err, txPorTiendaBanco) => {
 
                                         // Construir referenciasTiendas: { tienda_id: { nombre, efectivo_actual, bancos: [{banco_id, nombre, color, inicial, neto, total}] } }
                                         const referenciasTiendas = tiendas.map(t => {
@@ -271,17 +280,32 @@ app.get('/', requireAuth, (req, res) => {
                                                 try { inicialPorBanco = JSON.parse(apertura.saldos_bancos_json); } catch(e) {}
                                             }
 
-                                            const bancosRef = bancos.map(b => {
-                                                const inicial = parseFloat(inicialPorBanco[b.id] || 0);
-                                                const txRow = (txPorTiendaBanco || []).find(r => r.tienda_id === t.id && r.banco_id === b.id);
+                                            // Bancos regulares + "Otros / Suelto"
+                                            const bancosListExtended = [...bancos, { id: 'Otros', nombre: 'Otros / Suelto', color: '#888' }];
+
+                                            const bancosRef = bancosListExtended.map(b => {
+                                                const bId = b.id === 'Otros' ? null : b.id;
+                                                
+                                                // Calcular inicial: Para bancos según JSON, para Otros es el restante del inicial total.
+                                                let finalInicial = 0;
+                                                if (b.id === 'Otros') {
+                                                    let sumBancos = 0;
+                                                    for (let bid in inicialPorBanco) sumBancos += parseFloat(inicialPorBanco[bid] || 0);
+                                                    finalInicial = Math.max(0, (apertura ? apertura.saldo_inicial_efectivo : 0) - sumBancos);
+                                                } else {
+                                                    finalInicial = parseFloat(inicialPorBanco[b.id] || 0);
+                                                }
+
+                                                const txRow = (txPorTiendaBanco || []).find(r => r.tienda_id === t.id && r.banco_id === bId);
                                                 const neto = txRow ? (txRow.neto_txn || 0) : 0;
+                                                
                                                 return {
                                                     banco_id: b.id,
                                                     banco_nombre: b.nombre,
                                                     banco_color: b.color || '#555',
-                                                    inicial,
+                                                    inicial: finalInicial,
                                                     neto,
-                                                    total_esperado: Math.max(0, inicial + neto)
+                                                    total_esperado: Math.max(0, finalInicial + neto)
                                                 };
                                             });
 
@@ -556,9 +580,20 @@ app.post('/tesoreria/enviar-tienda', requireAdminOrContador, (req, res) => {
         // 1. Salida de Tesorería Central
         db.run("INSERT INTO tesoreria_log (tipo, monto, referencia, fecha_hora, banco_id) VALUES ('Envío a Tienda', ?, ?, ?, ?)", 
                [montoNum, referencia || 'Envío de Efectivo', now, bOrigenId]);
-        // 2. Entrada en Tienda
+        
+        // 2. Registro de Transacción para la Tienda (Audit trail y balance)
+        // Se registra como ingreso de efectivo físico.
+        db.run(`INSERT INTO transacciones (tienda_id, banco_id, usuario_id, tipo, monto_efectivo, monto_banco, referencia, fecha_hora) 
+                VALUES (?, ?, ?, 'Resurtido Tesorería', ?, 0, ?, ?)`, 
+                [tienda_id, bOrigenId, req.session.user.id, montoNum, referencia || 'Recibido de Tesorería', now]);
+
+        // 3. Entrada en Tienda
         db.run("UPDATE tiendas SET efectivo_actual = efectivo_actual + ? WHERE id = ?", [montoNum, tienda_id]);
-        db.run('COMMIT', () => res.redirect('/tesoreria'));
+        
+        db.run('COMMIT', (err) => {
+            if (err) console.error("Error al enviar a tienda:", err);
+            res.redirect('/tesoreria');
+        });
     });
 });
 
