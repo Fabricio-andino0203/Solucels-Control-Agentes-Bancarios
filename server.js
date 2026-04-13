@@ -764,15 +764,15 @@ app.post('/transaccion', requireAuth, (req, res) => {
         let resEf = 0, resVi = 0;
 
         if (tipo === 'Depósito') {
-            resEf = montoNum; resVi = -montoNum;
+            resEf = montoNum + comEf; resVi = -montoNum + comVi;
         } else if (tipo === 'Retiro') {
-            resEf = -montoNum + comEf; resVi = montoNum;
+            resEf = -montoNum + comEf; resVi = montoNum + comVi;
         } else if (tipo === 'Pago Servicio') {
-            resEf = montoNum + comEf; resVi = -montoNum;
+            resEf = montoNum + comEf; resVi = -montoNum + comVi;
         } else if (tipo === 'Pago Caja Empresarial') {
-            resEf = montoNum; resVi = -montoNum;
+            resEf = montoNum + comEf; resVi = -montoNum + comVi;
         } else if (tipo === 'Depósito Cuenta') {
-            resEf = -montoNum; resVi = montoNum;
+            resEf = -montoNum + comEf; resVi = montoNum + comVi;
         } else if (tipo === 'Efectivo Entregado') {
             resEf = -montoNum; resVi = 0;
         }
@@ -1151,13 +1151,13 @@ app.post('/transacciones/editar/:id', requireAdminOrContador, (req, res) => {
             let resEf = 0, resVi = 0;
 
             if (oldTx.tipo === 'Depósito' || oldTx.tipo === 'Pago Caja Empresarial') {
-                resEf = montoNum; resVi = -montoNum;
+                resEf = montoNum + comEf; resVi = -montoNum + comVi;
             } else if (oldTx.tipo === 'Retiro') {
-                resEf = -montoNum + comEf; resVi = montoNum;
+                resEf = -montoNum + comEf; resVi = montoNum + comVi;
             } else if (oldTx.tipo === 'Pago Servicio') {
-                resEf = montoNum + comEf; resVi = -montoNum;
+                resEf = montoNum + comEf; resVi = -montoNum + comVi;
             } else if (oldTx.tipo === 'Depósito Cuenta') {
-                resEf = -montoNum; resVi = montoNum;
+                resEf = -montoNum + comEf; resVi = montoNum + comVi;
             } else if (oldTx.tipo === 'Gasto') {
                 resEf = 0; resVi = -montoNum;
             }

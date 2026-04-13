@@ -8,14 +8,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         input.addEventListener('input', (e) => {
-            let value = e.target.value.replace(/[^0-9.]/g, '');
+            let value = e.target.value;
+            // Permitir signo menos al inicio, y números/punto después
+            value = value.replace(/(?!^-)[^0-9.]/g, '');
             
             // Prevenir múltiples puntos decimales
             const parts = value.split('.');
             if (parts.length > 2) value = parts[0] + '.' + parts.slice(1).join('');
 
-            // No formatear mientras escriben el punto decimal
-            if (value.endsWith('.')) return;
+            // No formatear mientras escriben el punto decimal o solo el signo menos
+            if (value.endsWith('.') || value === '-') return;
 
             if (value) {
                 const numericValue = parseFloat(value);
@@ -26,8 +28,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         input.addEventListener('blur', (e) => {
-            let value = e.target.value.replace(/[^0-9.]/g, '');
-            if (value) {
+            let value = e.target.value.replace(/(?!^-)[^0-9.]/g, '');
+            if (value && value !== '-') {
                 e.target.value = formatCurrency(parseFloat(value).toFixed(2));
             }
         });
@@ -36,7 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const form = input.closest('form');
         if (form) {
             form.addEventListener('submit', () => {
-                const rawValue = input.value.replace(/[^0-9.]/g, '');
+                const rawValue = input.value.replace(/(?!^-)[^0-9.]/g, '');
                 input.value = rawValue;
             });
         }
@@ -44,13 +46,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function formatCurrency(value) {
         if (!value) return '';
+        // Mantener el signo si existe
+        const isNegative = value.toString().startsWith('-');
         let num = value.toString().replace(/[^0-9.]/g, '');
-        if (!num) return '';
+        if (!num && !isNegative) return '';
         
         const parts = num.split('.');
         parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
         
-        let formatted = 'L ' + parts[0];
+        let formatted = (isNegative ? '- ' : '') + 'L ' + parts[0];
         if (parts.length > 1) {
             formatted += '.' + parts[1].substring(0, 2);
         }

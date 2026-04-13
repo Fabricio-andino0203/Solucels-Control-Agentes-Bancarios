@@ -221,13 +221,31 @@
 
                     <form action="/config/comisiones" method="POST">
                         <input type="hidden" name="comision_id" value="<%= c.id %>">
+                        
                         <div class="input-group-premium">
-                            <label>📥 Suma a Efectivo Físico</label>
-                            <input type="text" name="valor_efectivo" class="input-premium money-input" value="<%= c.valor_efectivo %>" required>
+                            <label style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>📥 Efectivo Físico</span>
+                                <span class="badge-op" style="font-size: 0.65rem; padding: 2px 8px; border-radius: 6px; background: <%= (c.valor_efectivo < 0) ? '#ff453a20' : '#34c75920' %>; color: <%= (c.valor_efectivo < 0) ? '#ff453a' : '#34c759' %>;">
+                                    <%= (c.valor_efectivo < 0) ? 'RESTA' : 'SUMA' %>
+                                </span>
+                            </label>
+                            <div style="position: relative;">
+                                <input type="text" name="valor_efectivo" class="input-premium money-input" value="<%= c.valor_efectivo %>" required>
+                                <button type="button" class="toggle-sign" onclick="toggleSign(this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 8px; width: 32px; height: 32px; cursor: pointer; font-weight: 800;">±</button>
+                            </div>
                         </div>
+
                         <div class="input-group-premium">
-                            <label>🏦 Suma a Saldo Virtual</label>
-                            <input type="text" name="valor_virtual" class="input-premium money-input" value="<%= c.valor_virtual %>" required>
+                            <label style="display: flex; justify-content: space-between; align-items: center;">
+                                <span>🏦 Saldo Virtual</span>
+                                <span class="badge-op" style="font-size: 0.65rem; padding: 2px 8px; border-radius: 6px; background: <%= (c.valor_virtual < 0) ? '#ff453a20' : '#34c75920' %>; color: <%= (c.valor_virtual < 0) ? '#ff453a' : '#34c759' %>;">
+                                    <%= (c.valor_virtual < 0) ? 'RESTA' : 'SUMA' %>
+                                </span>
+                            </label>
+                            <div style="position: relative;">
+                                <input type="text" name="valor_virtual" class="input-premium money-input" value="<%= c.valor_virtual %>" required>
+                                <button type="button" class="toggle-sign" onclick="toggleSign(this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 8px; width: 32px; height: 32px; cursor: pointer; font-weight: 800;">±</button>
+                            </div>
                         </div>
                         
                         <% if(user && user.rol === 'Admin') { %>
@@ -258,6 +276,35 @@
     </main>
 
     <script>
+        function toggleSign(btn) {
+            const container = btn.parentElement;
+            const input = container.querySelector('input');
+            const group = container.closest('.input-group-premium');
+            const badge = group.querySelector('.badge-op');
+            
+            let val = input.value.replace(/[^0-9.-]/g, '');
+            if (!val || val === '0') val = '';
+            
+            if (val.startsWith('-')) {
+                input.value = val.substring(1);
+                if (badge) {
+                    badge.innerText = 'SUMA';
+                    badge.style.background = '#34c75920';
+                    badge.style.color = '#34c759';
+                }
+            } else {
+                input.value = '-' + (val || '0');
+                if (badge) {
+                    badge.innerText = 'RESTA';
+                    badge.style.background = '#ff453a20';
+                    badge.style.color = '#ff453a';
+                }
+            }
+            
+            // Disparar evento input para formatear
+            input.dispatchEvent(new Event('input'));
+        }
+
         function confirmReset() {
             if(confirm("⚠ ADVERTENCIA CRÍTICA ⚠\n¿Estás absolutamente seguro? Se perderán todas las transacciones y los saldos volverán a cero.")) {
                 if(confirm("Doble confirmación: Esta acción es irreversible.")) {
@@ -266,6 +313,15 @@
             }
         }
     </script>
+    <style>
+        .toggle-sign:hover {
+            background: rgba(255,255,255,0.2) !important;
+            border-color: var(--accent-blue) !important;
+        }
+        .toggle-sign:active {
+            transform: translateY(-50%) scale(0.95) !important;
+        }
+    </style>
     <script src="/js/money-formatter.js"></script>
 </body>
 </html>
