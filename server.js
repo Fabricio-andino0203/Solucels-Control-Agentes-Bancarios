@@ -54,18 +54,59 @@ app.use((req, res, next) => {
     next();
 });
 
-// Ayudante para Fecha Local (Honduras -6)
-// El servidor ya está configurado en zona horaria Honduras (GMT-6),
-// así que usamos directamente la hora local del sistema operativo.
+// MODALIDAD MANTENIMIENTO (Activar/Desactivar aquí)
+const MANTENIMIENTO_ACTIVO = true; 
+
+app.use((req, res, next) => {
+    // Si el mantenimiento está activo, redirigir a la vista de mantenimiento
+    // Permitir el acceso a login para el administrador o si ya es admin puede entrar (opcional)
+    // En este caso, bloquearemos todo excepto si el usuario ya es Admin en la sesión
+    const isPublicAsset = req.path.startsWith('/public') || req.path.startsWith('/css') || req.path.startsWith('/js') || req.path.startsWith('/img');
+    
+    if (MANTENIMIENTO_ACTIVO && !isPublicAsset) {
+        if (req.session.user && req.session.user.rol === 'Admin') {
+            return next(); // Permitir admin trabajar
+        }
+        if (req.path !== '/mantenimiento' && req.path !== '/login') {
+            return res.redirect('/mantenimiento');
+        }
+    }
+    next();
+});
+
+app.get('/mantenimiento', (req, res) => {
+    res.render('maintenance');
+});
+
+// Ayudante para Fecha Local (Honduras America/Tegucigalpa)
 function getLocalTime() {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    // Forzamos la zona horaria de Honduras para evitar problemas con la hora del servidor (UTC)
+    const options = {
+        timeZone: 'America/Tegucigalpa',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    };
+    
+    // Usamos el locale en-CA porque devuelve YYYY-MM-DD
+    const formatter = new Intl.DateTimeFormat('en-CA', options);
+    const parts = formatter.formatToParts(now);
+    
+    const getPart = (type) => parts.find(p => p.type === type).value;
+    
+    const year = getPart('year');
+    const month = getPart('month');
+    const day = getPart('day');
+    const hour = getPart('hour');
+    const minute = getPart('minute');
+    const second = getPart('second');
+    
+    return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 }
 
 const requireAuth = (req, res, next) => {
