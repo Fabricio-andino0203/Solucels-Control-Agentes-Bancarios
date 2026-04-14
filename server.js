@@ -49,33 +49,10 @@ app.use(session({
     saveUninitialized: false
 }));
 
+
 app.use((req, res, next) => {
     res.locals.user = req.session.user || null;
     next();
-});
-
-// MODALIDAD MANTENIMIENTO (Activar/Desactivar aquí)
-const MANTENIMIENTO_ACTIVO = false; 
-
-app.use((req, res, next) => {
-    // Si el mantenimiento está activo, redirigir a la vista de mantenimiento
-    // Permitir el acceso a login para el administrador o si ya es admin puede entrar (opcional)
-    // En este caso, bloquearemos todo excepto si el usuario ya es Admin en la sesión
-    const isPublicAsset = req.path.startsWith('/public') || req.path.startsWith('/css') || req.path.startsWith('/js') || req.path.startsWith('/img');
-    
-    if (MANTENIMIENTO_ACTIVO && !isPublicAsset) {
-        if (req.session.user && req.session.user.rol === 'Admin') {
-            return next(); // Permitir admin trabajar
-        }
-        if (req.path !== '/mantenimiento' && req.path !== '/login') {
-            return res.redirect('/mantenimiento');
-        }
-    }
-    next();
-});
-
-app.get('/mantenimiento', (req, res) => {
-    res.render('maintenance');
 });
 
 // Ayudante para Fecha Local (Honduras America/Tegucigalpa)
