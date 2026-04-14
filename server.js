@@ -55,7 +55,7 @@ app.use((req, res, next) => {
 });
 
 // MODALIDAD MANTENIMIENTO (Activar/Desactivar aquí)
-const MANTENIMIENTO_ACTIVO = true; 
+const MANTENIMIENTO_ACTIVO = false; 
 
 app.use((req, res, next) => {
     // Si el mantenimiento está activo, redirigir a la vista de mantenimiento
