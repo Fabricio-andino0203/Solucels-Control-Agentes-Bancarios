@@ -519,6 +519,7 @@ app.get('/tesoreria', requireAdminOrContador, (req, res) => {
                                         return { ...s, saldo: base + s.flujo };
                                     });
 
+                                    const otrosSaldo = baseOtros + flowOtros;
                                     if (otrosSaldo !== 0) {
                                         saldosPorBanco.push({ id: 'Otros', nombre: 'Otros', color: '#888', saldo: otrosSaldo });
                                     }
