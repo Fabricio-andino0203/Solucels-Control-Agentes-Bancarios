@@ -518,12 +518,13 @@ app.get('/tesoreria', requireAdminOrContador, (req, res) => {
                                 `, [closureTime, closureTime, closureTime], (err, rowFlujoOtros) => {
                                     if (err) console.error("Error en flowOtros tesorería:", err);
                                     
-                                    const flowOtros = rowFlujoOtros ? rowFlujoOtros.flujoOtros : 0;
-                                    const baseOtros = parseFloat(baseSaldos['Otros'] || 0);
+                                    const flowOtros = Number(rowFlujoOtros ? rowFlujoOtros.flujoOtros : 0) || 0;
+                                    const baseOtros = Number(baseSaldos['Otros'] || 0) || 0;
 
                                     const saldosPorBanco = safeSaldosFlujo.map(s => {
-                                        const base = parseFloat(baseSaldos[s.id] || 0);
-                                        return { ...s, saldo: base + s.flujo };
+                                        const base = Number(baseSaldos[String(s.id)] || 0) || 0;
+                                        const flujoVal = Number(s.flujo || 0) || 0;
+                                        return { ...s, saldo: base + flujoVal };
                                     });
 
                                     const otrosSaldo = baseOtros + flowOtros;
@@ -1516,14 +1517,16 @@ app.post('/tesoreria/cierre', requireAdminOrContador, (req, res) => {
                     let totalEfectivo = 0;
 
                     saldosFlujo.forEach(s => {
-                        const base = parseFloat(baseSaldos[s.id] || 0);
-                        const final = base + s.flujo;
-                        finalSaldos[s.id] = final;
+                        const base = Number(baseSaldos[String(s.id)] || 0) || 0;
+                        const f = Number(s.flujo || 0) || 0;
+                        const final = base + f;
+                        finalSaldos[String(s.id)] = final;
                         totalEfectivo += final;
                     });
 
-                    const baseO = parseFloat(baseSaldos['Otros'] || 0);
-                    const finalO = baseO + (rowO ? rowO.flowOtros : 0);
+                    const baseO = Number(baseSaldos['Otros'] || 0) || 0;
+                    const fO = Number(rowO ? rowO.flowOtros : 0) || 0;
+                    const finalO = baseO + fO;
                     finalSaldos['Otros'] = finalO;
                     totalEfectivo += finalO;
 
