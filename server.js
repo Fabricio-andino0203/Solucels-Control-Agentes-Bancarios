@@ -1565,3 +1565,5 @@ app.post('/tesoreria/deuda/eliminar/:id', requireAdminOrContador, (req, res) => 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Servidor de Solucels Control corriendo en el puerto ${PORT}`);
 });
+
+// Despliegue forzado a las 10:09 AM - Verificación de sintaxis completada.
