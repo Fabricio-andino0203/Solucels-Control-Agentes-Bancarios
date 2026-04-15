@@ -177,9 +177,17 @@
                                     <td><span style="font-size:0.8rem; color:var(--text-muted);"><%= r.banco_nombre || 'Otros' %></span></td>
                                     <td class="amount-bold">L <%= r.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
                                     <td>
-                                        <form action="/tesoreria/recibir/<%= r.id %>" method="POST">
-                                            <button type="submit" class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">Confirmar</button>
-                                        </form>
+                                        <div style="display: flex; gap: 6px; align-items: center;">
+                                            <form action="/tesoreria/recibir/<%= r.id %>" method="POST">
+                                                <button type="submit" class="badge-tipo bg-ingreso" style="border:none; cursor:pointer; padding: 6px 12px; font-weight:bold;">Confirmar</button>
+                                            </form>
+                                            <form action="/tesoreria/remesa/eliminar/<%= r.id %>" method="POST" onsubmit="return confirm('¿Eliminar esta recepción pendiente?')">
+                                                <div style="display: flex; gap: 4px;">
+                                                    <button type="submit" name="revertir" value="true" class="badge-tipo bg-gasto" style="border:none; cursor:pointer;" title="Borrar y devolver dinero a la caja de la tienda">Revertir</button>
+                                                    <button type="submit" name="revertir" value="false" class="badge-tipo" style="background:rgba(255,255,255,0.1); color:#aaa; border:none; cursor:pointer;" title="Solo quitar de la lista">Borrar</button>
+                                                </div>
+                                            </form>
+                                        </div>
                                     </td>
                                 </tr>
                             <% }); %>
