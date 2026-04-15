@@ -488,8 +488,11 @@ app.get('/tesoreria', requireAdminOrContador, (req, res) => {
                 `;
                 db.all(sqlHistorial, [filterFecha, filterFecha], (err, historial) => {
                     db.all("SELECT * FROM bancos", [], (err, bancos) => {
+                        if (err) console.error("Error al cargar bancos en tesorería:", err);
+                        
                         // Buscar el último cierre de tesorería para usarlo como punto de partida
                         db.get("SELECT * FROM cierres_tesoreria ORDER BY fecha_hora DESC LIMIT 1", [], (err, lastClosure) => {
+                            if (err) console.error("Error al buscar último cierre:", err);
                             const closureTime = lastClosure ? lastClosure.fecha_hora : '1970-01-01 00:00:00';
                             let baseSaldos = {};
                             if (lastClosure && lastClosure.saldos_json) {
@@ -504,17 +507,21 @@ app.get('/tesoreria', requireAdminOrContador, (req, res) => {
                                  FROM bancos b
                             `;
                             db.all(sqlSaldos, [closureTime, closureTime, closureTime], (err, saldosFlujo) => {
+                                if (err) console.error("Error en sqlSaldos tesorería:", err);
+                                const safeSaldosFlujo = saldosFlujo || [];
+
                                 db.get(`
                                     SELECT 
                                        (SELECT COALESCE(SUM(monto), 0) FROM remesas WHERE estado = 'Recibido' AND banco_id IS NULL AND fecha_recepcion > ?) +
                                        (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo = 'Traslado (Efectivo)' AND banco_id IS NULL AND fecha_hora > ?) -
                                        (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo IN ('Depósito a Banco', 'Envío a Tienda', 'Entrega Dueño', 'Pago Depósito Adelantado', 'Ajuste de Cuadre') AND banco_id IS NULL AND fecha_hora > ?) as flujoOtros
                                 `, [closureTime, closureTime, closureTime], (err, rowFlujoOtros) => {
+                                    if (err) console.error("Error en flowOtros tesorería:", err);
                                     
                                     const flowOtros = rowFlujoOtros ? rowFlujoOtros.flujoOtros : 0;
                                     const baseOtros = parseFloat(baseSaldos['Otros'] || 0);
 
-                                    const saldosPorBanco = saldosFlujo.map(s => {
+                                    const saldosPorBanco = safeSaldosFlujo.map(s => {
                                         const base = parseFloat(baseSaldos[s.id] || 0);
                                         return { ...s, saldo: base + s.flujo };
                                     });

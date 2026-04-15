@@ -81,7 +81,7 @@ const initializeDatabase = () => {
             diferencia REAL,
             desglose_bancos TEXT, 
             observaciones TEXT,
-            FOREIGN KEY (tienda_id) REFERENCES tiendas(id),
+            FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
         )`);
 
         // Cierres de tesorería central
