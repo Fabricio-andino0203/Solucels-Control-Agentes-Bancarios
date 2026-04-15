@@ -205,8 +205,6 @@ app.get('/', requireAuth, (req, res) => {
                 db.all("SELECT id, tienda_id, banco_id, monto_efectivo FROM transacciones", [], (err, allTx) => {
                     // 2. Obtener Gastos (Egresos Bancarios)
                     db.all(`SELECT banco_id, SUM(monto) as total FROM gastos WHERE ${dateFilter} GROUP BY banco_id`, dateParam, (err, rowsGastos) => {
-                    // 2. Obtener Gastos (Egresos Bancarios)
-                    db.all(`SELECT banco_id, SUM(monto) as total FROM gastos WHERE ${dateFilter} GROUP BY banco_id`, dateParam, (err, rowsGastos) => {
                         
                         // 3. Obtener Saldos Iniciales
                         db.all("SELECT * FROM saldos_iniciales_tiendas", [], (err, iniciales) => {
@@ -224,20 +222,8 @@ app.get('/', requireAuth, (req, res) => {
                                 
                                 const enTransito = rowTransito ? (rowTransito.transito || 0) : 0;
 
-                                const globalBancario = saldosBancos.map(b => {
-                                    const totalInStores = auditMatrix.reduce((acc, curr) => acc + (curr.bancos[b.id] || 0), 0);
-                                    const gMatch = (rowsGastos || []).find(g => g.banco_id === b.id);
-                                    const totalGasto = gMatch ? gMatch.total : 0;
-                                    
-                                    b.total_gastos = totalGasto;
-
-                                    return {
-                                        nombre: b.nombre,
-                                        total: totalInStores - totalGasto, // AHORA SÍ: Solo Efectivo en Tiendas - Gastos. NO sumamos saldo virtual.
-                                        saldo_cuenta: b.saldo,
-                                        efectivo_tiendas: totalInStores
-                                    };
-                                });
+                                // El cálculo de auditMatrix y globalBancario se ha movido abajo para 
+                                // sincronizarse con los cierres de caja (referenciasTiendas).
 
                                 // Calcular referencia por banco por tienda (saldo_inicial_apertura + neto_transacciones)
                                 const tiendaIds = tiendas.map(t => t.id);
