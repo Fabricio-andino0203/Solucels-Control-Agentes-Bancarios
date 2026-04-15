@@ -521,31 +521,38 @@ app.get('/tesoreria', requireAdminOrContador, (req, res) => {
                                     const flowOtros = Number(rowFlujoOtros ? rowFlujoOtros.flujoOtros : 0) || 0;
                                     const baseOtros = Number(baseSaldos['Otros'] || 0) || 0;
 
-                                    const saldosPorBanco = safeSaldosFlujo.map(s => {
-                                        const base = Number(baseSaldos[String(s.id)] || 0) || 0;
-                                        const flujoVal = Number(s.flujo || 0) || 0;
-                                        return { ...s, saldo: base + flujoVal };
+                                    // 1. FLUJO (Lo que ha pasado desde el último corte o ayer)
+                                    // 2. SALDO REAL (Flujo + Base del último corte)
+                                    const flujoPorBanco = safeSaldosFlujo.map(s => {
+                                        return { ...s, monto: Number(s.flujo || 0) || 0 };
                                     });
-
-                                    const otrosSaldo = baseOtros + flowOtros;
-                                    if (otrosSaldo !== 0) {
-                                        saldosPorBanco.push({ id: 'Otros', nombre: 'Otros', color: '#888', saldo: otrosSaldo });
+                                    if (flowOtros !== 0) {
+                                        flujoPorBanco.push({ id: 'Otros', nombre: 'Otros', color: '#888', monto: flowOtros });
                                     }
 
-                                const saldoTesoreriaTotal = saldosPorBanco.reduce((acc, s) => acc + s.saldo, 0);
-                                const enTransitoVal = (remesasPendientes || []).reduce((acc, curr) => acc + curr.monto, 0);
-                                const deudasList = (deudas && Array.isArray(deudas)) ? deudas : [];
+                                    const saldosTotales = safeSaldosFlujo.map(s => {
+                                        const base = Number(baseSaldos[String(s.id)] || 0) || 0;
+                                        return { id: s.id, nombre: s.nombre, saldo: base + (Number(s.flujo || 0) || 0) };
+                                    });
+                                    saldosTotales.push({ id: 'Otros', nombre: 'Otros', saldo: baseOtros + flowOtros });
 
-                                console.log("Cargando Tesorería - Deudas encontradas:", deudasList.length);
+                                    const saldoTesoreriaTotalFlujo = flujoPorBanco.reduce((acc, s) => acc + s.monto, 0);
+                                    const saldoTesoreriaTotalReal = saldosTotales.reduce((acc, s) => acc + s.saldo, 0);
+                                    
+                                    const enTransitoVal = (remesasPendientes || []).reduce((acc, curr) => acc + curr.monto, 0);
+                                    const deudasList = (deudas && Array.isArray(deudas)) ? deudas : [];
 
-                                res.render('tesoreria', { 
-                                    remesasPendientes: remesasPendientes || [], 
-                                    saldosPorBanco: saldosPorBanco || [], 
-                                    saldoTesoreriaTotal: saldoTesoreriaTotal || 0, 
-                                    enTransito: enTransitoVal,
-                                    enTránsito: enTransitoVal, // Para compatibilidad
-                                    historial: historial || [], 
-                                    bancos: bancos || [],
+                                    res.render('tesoreria', { 
+                                        remesasPendientes: remesasPendientes || [], 
+                                        flujoPorBanco: flujoPorBanco || [], 
+                                        saldosTotales: saldosTotales || [],
+                                        saldoTesoreriaTotal: saldoTesoreriaTotalFlujo, // Para conservar el panel principal reseteable
+                                        saldoTesoreriaTotalFlujo: saldoTesoreriaTotalFlujo,
+                                        saldoTesoreriaTotalReal: saldoTesoreriaTotalReal,
+                                        enTransito: enTransitoVal,
+                                        enTránsito: enTransitoVal,
+                                        historial: historial || [], 
+                                        bancos: bancos || [],
                                     tiendas: tiendas || [],
                                     deudas: deudasList,
                                     filterFecha: filterFecha,
