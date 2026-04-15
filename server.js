@@ -488,25 +488,40 @@ app.get('/tesoreria', requireAdminOrContador, (req, res) => {
                 `;
                 db.all(sqlHistorial, [filterFecha, filterFecha], (err, historial) => {
                     db.all("SELECT * FROM bancos", [], (err, bancos) => {
-                        const sqlSaldos = `
-                             SELECT b.id, b.nombre, b.color,
-                                    (SELECT COALESCE(SUM(monto), 0) FROM remesas WHERE estado = 'Recibido' AND banco_id = b.id) +
-                                    (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo = 'Traslado (Efectivo)' AND banco_id = b.id) -
-                                    (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo IN ('Depósito a Banco', 'Envío a Tienda', 'Entrega Dueño', 'Pago Depósito Adelantado') AND banco_id = b.id) as saldo
-                             FROM bancos b
-                        `;
-                        db.all(sqlSaldos, [], (err, saldos) => {
-                            db.get(`
-                                SELECT 
-                                   (SELECT COALESCE(SUM(monto), 0) FROM remesas WHERE estado = 'Recibido' AND banco_id IS NULL) +
-                                   (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo = 'Traslado (Efectivo)' AND banco_id IS NULL) -
-                                   (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo IN ('Depósito a Banco', 'Envío a Tienda', 'Entrega Dueño', 'Pago Depósito Adelantado') AND banco_id IS NULL) as saldo
-                            `, [], (err, rowOtros) => {
-                                const otrosSaldo = rowOtros ? (rowOtros.saldo || 0) : 0;
-                                const saldosPorBanco = saldos || [];
-                                if (otrosSaldo !== 0) {
-                                    saldosPorBanco.push({ id: null, nombre: 'Otros', color: '#888', saldo: otrosSaldo });
-                                }
+                        // Buscar el último cierre de tesorería para usarlo como punto de partida
+                        db.get("SELECT * FROM cierres_tesoreria ORDER BY fecha_hora DESC LIMIT 1", [], (err, lastClosure) => {
+                            const closureTime = lastClosure ? lastClosure.fecha_hora : '1970-01-01 00:00:00';
+                            let baseSaldos = {};
+                            if (lastClosure && lastClosure.saldos_json) {
+                                try { baseSaldos = JSON.parse(lastClosure.saldos_json); } catch(e) {}
+                            }
+
+                            const sqlSaldos = `
+                                 SELECT b.id, b.nombre, b.color,
+                                        (SELECT COALESCE(SUM(monto), 0) FROM remesas WHERE estado = 'Recibido' AND banco_id = b.id AND fecha_recepcion > ?) +
+                                        (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo = 'Traslado (Efectivo)' AND banco_id = b.id AND fecha_hora > ?) -
+                                        (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo IN ('Depósito a Banco', 'Envío a Tienda', 'Entrega Dueño', 'Pago Depósito Adelantado', 'Ajuste de Cuadre') AND banco_id = b.id AND fecha_hora > ?) as flujo
+                                 FROM bancos b
+                            `;
+                            db.all(sqlSaldos, [closureTime, closureTime, closureTime], (err, saldosFlujo) => {
+                                db.get(`
+                                    SELECT 
+                                       (SELECT COALESCE(SUM(monto), 0) FROM remesas WHERE estado = 'Recibido' AND banco_id IS NULL AND fecha_recepcion > ?) +
+                                       (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo = 'Traslado (Efectivo)' AND banco_id IS NULL AND fecha_hora > ?) -
+                                       (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo IN ('Depósito a Banco', 'Envío a Tienda', 'Entrega Dueño', 'Pago Depósito Adelantado', 'Ajuste de Cuadre') AND banco_id IS NULL AND fecha_hora > ?) as flujoOtros
+                                `, [closureTime, closureTime, closureTime], (err, rowFlujoOtros) => {
+                                    
+                                    const flowOtros = rowFlujoOtros ? rowFlujoOtros.flujoOtros : 0;
+                                    const baseOtros = parseFloat(baseSaldos['Otros'] || 0);
+
+                                    const saldosPorBanco = saldosFlujo.map(s => {
+                                        const base = parseFloat(baseSaldos[s.id] || 0);
+                                        return { ...s, saldo: base + s.flujo };
+                                    });
+
+                                    if (otrosSaldo !== 0) {
+                                        saldosPorBanco.push({ id: 'Otros', nombre: 'Otros', color: '#888', saldo: otrosSaldo });
+                                    }
 
                                 const saldoTesoreriaTotal = saldosPorBanco.reduce((acc, s) => acc + s.saldo, 0);
                                 const enTransitoVal = (remesasPendientes || []).reduce((acc, curr) => acc + curr.monto, 0);
@@ -1406,7 +1421,7 @@ app.post('/tesoreria/cuadre', requireAdminOrContador, (req, res) => {
     });
 });
 
-app.post('/tesoreria/log/eliminar/:id', requireAdminOrContador, (req, res) => {
+app.post('/tesoreria/tesoreria_log/eliminar/:id', requireAdminOrContador, (req, res) => {
     const id = req.params.id;
     const { revertir } = req.body;
 
@@ -1456,6 +1471,60 @@ app.post('/tesoreria/remesa/eliminar/:id', requireAdminOrContador, (req, res) =>
 
             db.run("DELETE FROM remesas WHERE id = ?", [id]);
             db.run('COMMIT', () => res.redirect('/tesoreria'));
+        });
+    });
+});
+
+app.post('/tesoreria/cierre', requireAdminOrContador, (req, res) => {
+    const { observaciones } = req.body;
+    const now = getLocalTime();
+    const usuId = req.session.user.id;
+
+    // Calculamos los saldos actuales EXACTAMENTE igual que en la vista para cerrar con coherencia
+    db.get("SELECT * FROM cierres_tesoreria ORDER BY fecha_hora DESC LIMIT 1", [], (err, lastClosure) => {
+        const closureTime = lastClosure ? lastClosure.fecha_hora : '1970-01-01 00:00:00';
+        let baseSaldos = {};
+        if (lastClosure && lastClosure.saldos_json) {
+            try { baseSaldos = JSON.parse(lastClosure.saldos_json); } catch(e) {}
+        }
+
+        db.all("SELECT id FROM bancos", [], (err, bancos) => {
+            const sqlFlujo = `
+                SELECT b.id, 
+                    (SELECT COALESCE(SUM(monto), 0) FROM remesas WHERE estado = 'Recibido' AND banco_id = b.id AND fecha_recepcion > ?) +
+                    (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo = 'Traslado (Efectivo)' AND banco_id = b.id AND fecha_hora > ?) -
+                    (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo IN ('Depósito a Banco', 'Envío a Tienda', 'Entrega Dueño', 'Pago Depósito Adelantado', 'Ajuste de Cuadre') AND banco_id = b.id AND fecha_hora > ?) as flujo
+                FROM bancos b
+            `;
+            db.all(sqlFlujo, [closureTime, closureTime, closureTime], (err, saldosFlujo) => {
+                db.get(`
+                    SELECT 
+                        (SELECT COALESCE(SUM(monto), 0) FROM remesas WHERE estado = 'Recibido' AND banco_id IS NULL AND fecha_recepcion > ?) +
+                        (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo = 'Traslado (Efectivo)' AND banco_id IS NULL AND fecha_hora > ?) -
+                        (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo IN ('Depósito a Banco', 'Envío a Tienda', 'Entrega Dueño', 'Pago Depósito Adelantado', 'Ajuste de Cuadre') AND banco_id IS NULL AND fecha_hora > ?) as flowOtros
+                `, [closureTime, closureTime, closureTime], (err, rowO) => {
+                    
+                    let finalSaldos = {};
+                    let totalEfectivo = 0;
+
+                    saldosFlujo.forEach(s => {
+                        const base = parseFloat(baseSaldos[s.id] || 0);
+                        const final = base + s.flujo;
+                        finalSaldos[s.id] = final;
+                        totalEfectivo += final;
+                    });
+
+                    const baseO = parseFloat(baseSaldos['Otros'] || 0);
+                    const finalO = baseO + (rowO ? rowO.flowOtros : 0);
+                    finalSaldos['Otros'] = finalO;
+                    totalEfectivo += finalO;
+
+                    db.run("INSERT INTO cierres_tesoreria (usuario_id, fecha_hora, saldos_json, total_efectivo, observaciones) VALUES (?, ?, ?, ?, ?)",
+                        [usuId, now, JSON.stringify(finalSaldos), totalEfectivo, observaciones || 'Cierre Diario Automático'], (err) => {
+                            res.redirect('/tesoreria?msg=cierre_ok');
+                        });
+                });
+            });
         });
     });
 });

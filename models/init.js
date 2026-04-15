@@ -82,6 +82,16 @@ const initializeDatabase = () => {
             desglose_bancos TEXT, 
             observaciones TEXT,
             FOREIGN KEY (tienda_id) REFERENCES tiendas(id),
+        )`);
+
+        // Cierres de tesorería central
+        db.run(`CREATE TABLE IF NOT EXISTS cierres_tesoreria (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            usuario_id INTEGER,
+            fecha_hora DATETIME DEFAULT CURRENT_TIMESTAMP,
+            saldos_json TEXT, 
+            total_efectivo REAL,
+            observaciones TEXT,
             FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
         )`);
 
