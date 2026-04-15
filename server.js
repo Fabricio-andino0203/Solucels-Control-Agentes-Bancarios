@@ -1533,7 +1533,14 @@ app.post('/tesoreria/cierre', requireAdminOrContador, (req, res) => {
 
                     db.run("INSERT INTO cierres_tesoreria (usuario_id, fecha_hora, saldos_json, total_efectivo, observaciones) VALUES (?, ?, ?, ?, ?)",
                         [usuId, now, JSON.stringify(finalSaldos), totalEfectivo, observaciones || 'Cierre Diario Automático'], (err) => {
-                            res.redirect('/tesoreria?msg=cierre_ok');
+                            // Borrado físico tras el cierre para reiniciar datos
+                            db.serialize(() => {
+                                db.run("DELETE FROM tesoreria_log WHERE fecha_hora <= ?", [now]);
+                                db.run("DELETE FROM remesas WHERE estado = 'Recibido' AND fecha_recepcion <= ?", [now]);
+                                // Opcional: limpiar deudas ya pagadas
+                                db.run("DELETE FROM depositos_adelantados WHERE estado = 'Pagado'");
+                                res.redirect('/tesoreria?msg=cierre_ok');
+                            });
                         });
                 });
             });
