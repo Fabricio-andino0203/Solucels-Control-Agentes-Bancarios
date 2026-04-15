@@ -551,13 +551,14 @@ app.get('/tesoreria', requireAdminOrContador, (req, res) => {
                                     filterFecha: filterFecha,
                                     user: req.session.user 
                                 });
-                            });
                         });
                     });
                 });
             });
         });
     });
+});
+});
 });
 
 app.post('/tesoreria/recibir/:id', requireAdminOrContador, (req, res) => {
