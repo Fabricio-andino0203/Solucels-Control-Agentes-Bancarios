@@ -458,6 +458,9 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
 
 // NUEVO MÓDULO DE TESORERÍA CENTRALIZADA
 app.get('/tesoreria', requireAdminOrContador, (req, res) => {
+    const { fecha } = req.query;
+    const filterFecha = fecha || getLocalTime().split(' ')[0];
+
     db.all("SELECT * FROM tiendas", [], (err, tiendas) => {
         db.all("SELECT d.*, b.nombre as banco_nombre FROM depositos_adelantados d JOIN bancos b ON d.banco_id = b.id WHERE d.estado = 'Pendiente'", [], (err, deudas) => {
             const sqlRemesas = `
@@ -471,7 +474,8 @@ app.get('/tesoreria', requireAdminOrContador, (req, res) => {
             db.all(sqlRemesas, [], (err, remesasPendientes) => {
                 const sqlHistorial = `
                     SELECT 'Remesa Recibida' as tipo_trans, r.id as log_id, r.monto, r.fecha_recepcion as fecha, t.nombre as origen, 'Efectivo' as via, r.observaciones as ref, 'remesa' as source_table
-                    FROM remesas r JOIN tiendas t ON r.tienda_id = t.id WHERE r.estado = 'Recibido'
+                    FROM remesas r JOIN tiendas t ON r.tienda_id = t.id 
+                    WHERE r.estado = 'Recibido' AND date(r.fecha_recepcion) = date(?)
                     UNION ALL
                     SELECT tl.tipo as tipo_trans, tl.id as log_id, tl.monto, tl.fecha_hora as fecha, 
                            COALESCE(b1.nombre, 'Otros/Suelto') || CASE WHEN tl.banco_destino_id IS NOT NULL THEN ' ➔ ' || b2.nombre ELSE '' END as origen, 
@@ -479,9 +483,10 @@ app.get('/tesoreria', requireAdminOrContador, (req, res) => {
                     FROM tesoreria_log tl 
                     LEFT JOIN bancos b1 ON tl.banco_id = b1.id
                     LEFT JOIN bancos b2 ON tl.banco_destino_id = b2.id
-                    ORDER BY fecha DESC LIMIT 50
+                    WHERE date(tl.fecha_hora) = date(?)
+                    ORDER BY fecha DESC LIMIT 100
                 `;
-                db.all(sqlHistorial, [], (err, historial) => {
+                db.all(sqlHistorial, [filterFecha, filterFecha], (err, historial) => {
                     db.all("SELECT * FROM bancos", [], (err, bancos) => {
                         const sqlSaldos = `
                              SELECT b.id, b.nombre, b.color,
@@ -519,6 +524,7 @@ app.get('/tesoreria', requireAdminOrContador, (req, res) => {
                                     bancos: bancos || [],
                                     tiendas: tiendas || [],
                                     deudas: deudasList,
+                                    filterFecha: filterFecha,
                                     user: req.session.user 
                                 });
                             });
@@ -1449,6 +1455,27 @@ app.post('/tesoreria/remesa/eliminar/:id', requireAdminOrContador, (req, res) =>
             }
 
             db.run("DELETE FROM remesas WHERE id = ?", [id]);
+            db.run('COMMIT', () => res.redirect('/tesoreria'));
+        });
+    });
+});
+
+app.post('/tesoreria/deuda/eliminar/:id', requireAdminOrContador, (req, res) => {
+    const id = req.params.id;
+    const { revertir } = req.body;
+
+    db.get("SELECT * FROM depositos_adelantados WHERE id = ?", [id], (err, deuda) => {
+        if (!deuda) return res.redirect('/tesoreria');
+
+        db.serialize(() => {
+            db.run('BEGIN TRANSACTION');
+            
+            if (revertir === 'true') {
+                // Si se revierte una deuda (depósito adelantado), se resta el saldo que se inyectó al banco
+                db.run("UPDATE saldos_bancarios SET saldo = saldo - ? WHERE banco_id = ?", [deuda.monto, deuda.banco_id]);
+            }
+
+            db.run("DELETE FROM depositos_adelantados WHERE id = ?", [id]);
             db.run('COMMIT', () => res.redirect('/tesoreria'));
         });
     });

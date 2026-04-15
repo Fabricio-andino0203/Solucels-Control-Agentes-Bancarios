@@ -76,7 +76,13 @@
             <!-- COLUMNA IZQUIERDA: HISTORIAL Y PENDIENTES -->
             <div>
                 <div class="audit-matrix-container" style="margin-bottom: 2rem;">
-                    <div style="margin-bottom: 1.25rem; font-weight: 700; font-size: 1.1rem;">📜 Historial de Operaciones Centrales</div>
+                    <div style="margin-bottom: 1.25rem; font-weight: 700; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center;">
+                        <span>📜 Historial de Operaciones</span>
+                        <form action="/tesoreria" method="GET" style="display: flex; gap: 8px; align-items: center;">
+                            <input type="date" name="fecha" value="<%= filterFecha %>" class="form-control" style="padding: 0.4rem; font-size: 0.85rem; width: auto; background: #1a1a1a;">
+                            <button type="submit" class="badge-tipo bg-deposito" style="border:none; cursor:pointer; height: 32px;">Filtrar</button>
+                        </form>
+                    </div>
                     <table class="audit-table">
                         <thead>
                             <tr>
@@ -134,9 +140,15 @@
                                     <td><%= d.banco_nombre %></td>
                                     <td class="amount-bold" style="color: #FF453A;">L <%= d.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
                                     <td>
-                                        <form action="/tesoreria/pagar-adelantado/<%= d.id %>" method="POST">
-                                            <button type="submit" class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.8rem; background: #FF453A; border-color: #FF453A;">Pagar Ahora</button>
-                                        </form>
+                                        <div style="display: flex; gap: 6px; align-items: center;">
+                                            <form action="/tesoreria/pagar-adelantado/<%= d.id %>" method="POST">
+                                                <button type="submit" class="badge-tipo bg-deposito" style="border:none; cursor:pointer; padding: 6px 12px;" title="Marcar como pagado">Pagar</button>
+                                            </form>
+                                            <form action="/tesoreria/deuda/eliminar/<%= d.id %>" method="POST" onsubmit="return confirm('¿Eliminar esta deuda?')">
+                                                <button type="submit" name="revertir" value="true" class="badge-tipo bg-gasto" style="border:none; cursor:pointer; padding: 6px 10px;" title="Borrar y restar saldo del banco">Revertir</button>
+                                                <button type="submit" name="revertir" value="false" class="badge-tipo" style="background:rgba(255,255,255,0.1); color:#aaa; border:none; cursor:pointer; padding: 6px 10px;" title="Solo quitar de la lista">Borrar</button>
+                                            </form>
+                                        </div>
                                     </td>
                                 </tr>
                             <% }); %>
