@@ -85,6 +85,7 @@
                                 <th>Detalle / Ref</th>
                                 <th>Origen/Banco</th>
                                 <th>Monto</th>
+                                <th>Acción</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -100,6 +101,14 @@
                                     <td><%= h.origen || 'Efectivo Cash' %></td>
                                     <td class="amount-bold <%= (h.tipo_trans === 'Remesa Recibida' || h.tipo_trans.startsWith('Traslado')) ? 'text-blue-audit' : 'text-expense' %>">
                                         <%= (h.tipo_trans === 'Remesa Recibida' || h.tipo_trans.startsWith('Traslado')) ? '+' : '-' %> L <%= h.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %>
+                                    </td>
+                                    <td>
+                                        <form action="/tesoreria/<%= h.source_table %>/eliminar/<%= h.log_id %>" method="POST" onsubmit="return confirm('¿Eliminar este registro?')">
+                                            <div style="display: flex; gap: 4px;">
+                                                <button type="submit" name="revertir" value="true" class="badge-tipo bg-gasto" style="border:none; cursor:pointer;" title="Borrar y devolver dinero">Revertir</button>
+                                                <button type="submit" name="revertir" value="false" class="badge-tipo" style="background:rgba(255,255,255,0.1); color:#aaa; border:none; cursor:pointer;" title="Solo borrar log">Borrar</button>
+                                            </div>
+                                        </form>
                                     </td>
                                 </tr>
                             <% }); %>
@@ -144,6 +153,7 @@
                         <thead>
                             <tr>
                                 <th>Origen</th>
+                                <th>Banco</th>
                                 <th>Monto</th>
                                 <th>Acción</th>
                             </tr>
@@ -152,6 +162,7 @@
                             <% remesasPendientes.forEach(function(r) { %>
                                 <tr>
                                     <td><%= r.tienda_nombre %></td>
+                                    <td><span style="font-size:0.8rem; color:var(--text-muted);"><%= r.banco_nombre || 'Otros' %></span></td>
                                     <td class="amount-bold">L <%= r.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
                                     <td>
                                         <form action="/tesoreria/recibir/<%= r.id %>" method="POST">
@@ -343,6 +354,36 @@
                             </select>
                         </div>
                         <button type="submit" class="btn-tesoreria" style="background: #007AFF; color: white;">Confirmar Traslado</button>
+                    </form>
+                </div>
+
+                <!-- FORM 6: CUADRE / ARQUEO DE TESORERÍA -->
+                <div class="card-tesoreria" style="border: 1px solid var(--accent-blue);">
+                    <h3 style="margin-bottom: 1.5rem; font-size: 1.1rem; display: flex; align-items: center; gap: 10px;">
+                        <span>⚖️</span> Arqueo de Tesorería
+                    </h3>
+                    <form action="/tesoreria/cuadre" method="POST" onsubmit="return confirm('¿Estás seguro de que quieres ajustar el saldo? Se creará un registro de ajuste.')">
+                        <div class="form-group-custom">
+                            <label class="form-label">Banco / Fondo a Ajustar</label>
+                            <select name="banco_id" class="form-control select-custom">
+                                <option value="">--- Otros / Suelto ---</option>
+                                <% bancos.forEach(function(b) { %>
+                                    <option value="<%= b.id %>"><%= b.nombre %></option>
+                                <% }); %>
+                            </select>
+                        </div>
+                        <div class="form-group-custom">
+                            <label class="form-label">Saldo Físico Real (Conteo)</label>
+                            <input type="text" name="monto_real" class="form-control money-input" placeholder="L 0.00" required>
+                        </div>
+                        <div class="form-group-custom">
+                            <label class="form-label">Motivo del Ajuste</label>
+                            <input type="text" name="referencia" class="form-control" placeholder="Ej: Arqueo fin de semana" required>
+                        </div>
+                        <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
+                            * El sistema comparará este monto con el saldo actual y generará una entrada de ajuste automática.
+                        </p>
+                        <button type="submit" class="btn-tesoreria" style="background: var(--bg-card); color: var(--accent-blue); border: 2px solid var(--accent-blue);">Aplicar Cuadre</button>
                     </form>
                 </div>
             </div>

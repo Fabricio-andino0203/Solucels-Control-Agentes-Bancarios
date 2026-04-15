@@ -201,43 +201,19 @@ app.get('/', requireAuth, (req, res) => {
         db.all("SELECT * FROM bancos", [], (err, bancos) => {
             db.all("SELECT b.id, b.nombre, b.color, s.saldo FROM bancos b JOIN saldos_bancarios s ON b.id = s.banco_id", [], (err, saldosBancos) => {
                 
-                // 1. Obtener Transacciones (Flujo)
-                const txQuery = `
-                    SELECT tienda_id, banco_id, SUM(monto_banco) as balance_banco, SUM(monto_efectivo) as balance_efectivo
-                    FROM transacciones 
-                    WHERE ${dateFilter}
-                    GROUP BY tienda_id, banco_id
-                `;
-
-                db.all(txQuery, dateParam, (err, txBalances) => {
+                // 1. Obtener Transacciones (Flujo) - No se usa auditMatrix aquí directamente
+                db.all("SELECT id, tienda_id, banco_id, monto_efectivo FROM transacciones", [], (err, allTx) => {
+                    // 2. Obtener Gastos (Egresos Bancarios)
+                    db.all(`SELECT banco_id, SUM(monto) as total FROM gastos WHERE ${dateFilter} GROUP BY banco_id`, dateParam, (err, rowsGastos) => {
                     // 2. Obtener Gastos (Egresos Bancarios)
                     db.all(`SELECT banco_id, SUM(monto) as total FROM gastos WHERE ${dateFilter} GROUP BY banco_id`, dateParam, (err, rowsGastos) => {
                         
                         // 3. Obtener Saldos Iniciales
                         db.all("SELECT * FROM saldos_iniciales_tiendas", [], (err, iniciales) => {
                             
-                            const auditMatrix = tiendas.map(t => {
-                                // NO usamos saldos_iniciales_tiendas státicos aquí porque inflan la tabla
-                                // El efectivo inicial real viene de 'aperturas_caja' pero ese ya afecta a al flujo o se muestra en Dashboard de cajero.
-                                // Para la auditoría, queremos ver flujo real HOY.
-                                
-                                const matchFlowEf = txBalances.filter(tx => tx.tienda_id === t.id);
-                                let flujoEf = matchFlowEf.reduce((acc, curr) => acc + curr.balance_efectivo, 0);
-
-                                let row = { 
-                                    id: t.id, 
-                                    name: t.nombre, 
-                                    efectivo: flujoEf, // Empezamos en 0 si no hay transas
-                                    bancos: {} 
-                                };
-
-                                bancos.forEach(b => {
-                                    const match = txBalances.find(tx => tx.tienda_id === t.id && tx.banco_id === b.id);
-                                    const flowBank = match ? match.balance_efectivo : 0; // Mostrar efectivo físico, no virtual
-                                    row.bancos[b.id] = flowBank; 
-                                });
-                                return row;
-                            });
+                            // Reemplazamos auditMatrix para que sea consistente con las Referencias de Tienda
+                            // Por ahora lo dejamos como está pero con un filtro de tiempo si se implementa.
+                            // Pero la mejor solución es generar auditMatrix después de calcular referenciasTiendas.
 
                             db.get(`
                                 SELECT 
@@ -290,50 +266,95 @@ app.get('/', requireAuth, (req, res) => {
 
                                     db.all(sqlTxPorTienda, [], (err, txPorTiendaBanco) => {
 
-                                        // Construir referenciasTiendas: { tienda_id: { nombre, efectivo_actual, bancos: [{banco_id, nombre, color, inicial, neto, total}] } }
-                                        const referenciasTiendas = tiendas.map(t => {
+                                        // Generar auditMatrix a partir de las tiendas (Sincronización total)
+                                        const auditMatrix = tiendas.map(t => {
                                             const apertura = (aperturas || []).find(a => a.tienda_id === t.id);
                                             let inicialPorBanco = {};
                                             if (apertura && apertura.saldos_bancos_json) {
                                                 try { inicialPorBanco = JSON.parse(apertura.saldos_bancos_json); } catch(e) {}
                                             }
 
-                                            // Bancos regulares + "Otros / Suelto"
-                                            const bancosListExtended = [...bancos, { id: 'Otros', nombre: 'Otros / Suelto', color: '#888' }];
+                                            let row = { id: t.id, name: t.nombre, efectivo: 0, bancos: {} };
+                                            let totalStore = 0;
 
-                                            const bancosRef = bancosListExtended.map(b => {
-                                                const bId = b.id === 'Otros' ? null : b.id;
-                                                
-                                                // Calcular inicial: Para bancos según JSON, para Otros es el restante del inicial total.
-                                                let finalInicial = 0;
-                                                if (b.id === 'Otros') {
-                                                    let sumBancos = 0;
-                                                    for (let bid in inicialPorBanco) sumBancos += parseFloat(inicialPorBanco[bid] || 0);
-                                                    finalInicial = Math.max(0, (apertura ? apertura.saldo_inicial_efectivo : 0) - sumBancos);
-                                                } else {
-                                                    finalInicial = parseFloat(inicialPorBanco[b.id] || 0);
-                                                }
-
-                                                const txRow = (txPorTiendaBanco || []).find(r => r.tienda_id === t.id && r.banco_id === bId);
+                                            bancos.forEach(b => {
+                                                const txRow = (txPorTiendaBanco || []).find(r => r.tienda_id === t.id && r.banco_id === b.id);
                                                 const neto = txRow ? (txRow.neto_txn || 0) : 0;
-                                                
+                                                const inicial = parseFloat(inicialPorBanco[b.id] || 0);
+                                                const totalB = inicial + neto;
+                                                row.bancos[b.id] = totalB;
+                                                totalStore += totalB;
+                                            });
+
+                                            // Otros / Suelto
+                                            let sumBancosIni = 0;
+                                            for (let bid in inicialPorBanco) sumBancosIni += parseFloat(inicialPorBanco[bid] || 0);
+                                            const inicialOtros = Math.max(0, (apertura ? apertura.saldo_inicial_efectivo : 0) - sumBancosIni);
+                                            const txOtros = (txPorTiendaBanco || []).find(r => r.tienda_id === t.id && r.banco_id === null);
+                                            const netoOtros = txOtros ? (txOtros.neto_txn || 0) : 0;
+                                            totalStore += (inicialOtros + netoOtros);
+
+                                            row.efectivo = totalStore;
+                                            return row;
+                                        });
+
+                                        const referenciasTiendas = tiendas.map(t => {
+                                            const refRow = auditMatrix.find(r => r.id === t.id);
+                                            const apertura = (aperturas || []).find(a => a.tienda_id === t.id);
+                                            let inicialPorBanco = {};
+                                            if (apertura && apertura.saldos_bancos_json) {
+                                                try { inicialPorBanco = JSON.parse(apertura.saldos_bancos_json); } catch(e) {}
+                                            }
+
+                                            const bancosRef = bancos.map(b => {
+                                                const txRow = (txPorTiendaBanco || []).find(r => r.tienda_id === t.id && r.banco_id === b.id);
+                                                const neto = txRow ? (txRow.neto_txn || 0) : 0;
+                                                const inicial = parseFloat(inicialPorBanco[b.id] || 0);
                                                 return {
                                                     banco_id: b.id,
                                                     banco_nombre: b.nombre,
                                                     banco_color: b.color || '#555',
-                                                    inicial: finalInicial,
+                                                    inicial,
                                                     neto,
-                                                    total_esperado: Math.max(0, finalInicial + neto)
+                                                    total_esperado: inicial + neto
                                                 };
                                             });
 
-                                            const totalEsperado = bancosRef.reduce((acc, r) => acc + r.total_esperado, 0);
+                                            // Otros
+                                            let sumBancosIni = 0;
+                                            for (let bid in inicialPorBanco) sumBancosIni += parseFloat(inicialPorBanco[bid] || 0);
+                                            const inicialOtros = Math.max(0, (apertura ? apertura.saldo_inicial_efectivo : 0) - sumBancosIni);
+                                            const txOtros = (txPorTiendaBanco || []).find(r => r.tienda_id === t.id && r.banco_id === null);
+                                            const netoOtros = txOtros ? (txOtros.neto_txn || 0) : 0;
+
+                                            const listB = [...bancosRef, {
+                                                banco_id: 'Otros',
+                                                banco_nombre: 'Otros / Suelto',
+                                                banco_color: '#888',
+                                                inicial: inicialOtros,
+                                                neto: netoOtros,
+                                                total_esperado: inicialOtros + netoOtros
+                                            }];
+
                                             return {
                                                 tienda_id: t.id,
                                                 tienda_nombre: t.nombre,
                                                 efectivo_actual: t.efectivo_actual,
-                                                bancos: bancosRef,
-                                                totalEsperado
+                                                bancos: listB,
+                                                totalEsperado: refRow.efectivo
+                                            };
+                                        });
+
+                                        // Recalcular Globales para que coincidan con la nueva matriz
+                                        const globalBancario = saldosBancos.map(b => {
+                                            const totalInStores = auditMatrix.reduce((acc, curr) => acc + (curr.bancos[b.id] || 0), 0);
+                                            const gMatch = (rowsGastos || []).find(g => g.banco_id === b.id);
+                                            const totalGasto = gMatch ? gMatch.total : 0;
+                                            return {
+                                                nombre: b.nombre,
+                                                total: totalInStores - totalGasto,
+                                                saldo_cuenta: b.saldo,
+                                                efectivo_tiendas: totalInStores
                                             };
                                         });
 
@@ -454,20 +475,21 @@ app.get('/tesoreria', requireAdminOrContador, (req, res) => {
     db.all("SELECT * FROM tiendas", [], (err, tiendas) => {
         db.all("SELECT d.*, b.nombre as banco_nombre FROM depositos_adelantados d JOIN bancos b ON d.banco_id = b.id WHERE d.estado = 'Pendiente'", [], (err, deudas) => {
             const sqlRemesas = `
-                SELECT r.*, t.nombre as tienda_nombre 
+                SELECT r.*, t.nombre as tienda_nombre, b.nombre as banco_nombre
                 FROM remesas r 
                 JOIN tiendas t ON r.tienda_id = t.id 
+                LEFT JOIN bancos b ON r.banco_id = b.id
                 WHERE r.estado = 'Pendiente'
                 ORDER BY r.fecha_envio DESC
             `;
             db.all(sqlRemesas, [], (err, remesasPendientes) => {
                 const sqlHistorial = `
-                    SELECT 'Efectivo Entregado' as tipo_trans, r.monto, r.fecha_recepcion as fecha, t.nombre as origen, 'Efectivo' as via, r.observaciones as ref
+                    SELECT 'Remesa Recibida' as tipo_trans, r.id as log_id, r.monto, r.fecha_recepcion as fecha, t.nombre as origen, 'Efectivo' as via, r.observaciones as ref, 'remesa' as source_table
                     FROM remesas r JOIN tiendas t ON r.tienda_id = t.id WHERE r.estado = 'Recibido'
                     UNION ALL
-                    SELECT tl.tipo as tipo_trans, tl.monto, tl.fecha_hora as fecha, 
+                    SELECT tl.tipo as tipo_trans, tl.id as log_id, tl.monto, tl.fecha_hora as fecha, 
                            COALESCE(b1.nombre, 'Otros/Suelto') || CASE WHEN tl.banco_destino_id IS NOT NULL THEN ' ➔ ' || b2.nombre ELSE '' END as origen, 
-                           'Banco' as via, tl.referencia as ref
+                           'Banco' as via, tl.referencia as ref, 'tesoreria_log' as source_table
                     FROM tesoreria_log tl 
                     LEFT JOIN bancos b1 ON tl.banco_id = b1.id
                     LEFT JOIN bancos b2 ON tl.banco_destino_id = b2.id
@@ -1365,6 +1387,86 @@ app.post('/migrate-db',
         }
     }
 );
+
+// --- RUTAS DE GESTIÓN DE TESORERÍA ---
+app.post('/tesoreria/cuadre', requireAdminOrContador, (req, res) => {
+    const { banco_id, monto_real, referencia } = req.body;
+    const montoRealNum = parseFloat((monto_real || '0').replace(/[^0-9.-]+/g, "")) || 0;
+    const bId = banco_id && banco_id !== "" ? parseInt(banco_id) : null;
+    const now = getLocalTime();
+
+    // Obtener saldo actual para calcular el ajuste
+    db.get(`
+        SELECT 
+           (SELECT COALESCE(SUM(monto), 0) FROM remesas WHERE estado = 'Recibido' AND (banco_id = ? OR (? IS NULL AND banco_id IS NULL))) +
+           (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo = 'Traslado (Efectivo)' AND (banco_id = ? OR (? IS NULL AND banco_id IS NULL))) -
+           (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo IN ('Depósito a Banco', 'Envío a Tienda', 'Entrega Dueño', 'Pago Depósito Adelantado', 'Ajuste de Cuadre') AND (banco_id = ? OR (? IS NULL AND banco_id IS NULL))) as saldo
+    `, [bId, bId, bId, bId, bId, bId], (err, row) => {
+        const saldoActual = row ? row.saldo : 0;
+        const diff = saldoActual - montoRealNum;
+
+        if (diff === 0) return res.redirect('/tesoreria');
+
+        db.run("INSERT INTO tesoreria_log (tipo, monto, referencia, fecha_hora, banco_id) VALUES ('Ajuste de Cuadre', ?, ?, ?, ?)",
+            [diff, referencia || 'Ajuste manual de arqueo', now, bId], (err) => {
+                res.redirect('/tesoreria');
+            });
+    });
+});
+
+app.post('/tesoreria/log/eliminar/:id', requireAdminOrContador, (req, res) => {
+    const id = req.params.id;
+    const { revertir } = req.body;
+
+    db.get("SELECT * FROM tesoreria_log WHERE id = ?", [id], (err, log) => {
+        if (!log) return res.redirect('/tesoreria');
+
+        db.serialize(() => {
+            db.run('BEGIN TRANSACTION');
+            
+            if (revertir === 'true') {
+                if (log.tipo === 'Gasto Bancario' && log.banco_id) {
+                    db.run("UPDATE saldos_bancarios SET saldo = saldo + ? WHERE banco_id = ?", [log.monto, log.banco_id]);
+                } else if (log.tipo === 'Depósito a Banco' && log.banco_destino_id) {
+                    db.run("UPDATE saldos_bancarios SET saldo = saldo - ? WHERE banco_id = ?", [log.monto, log.banco_destino_id]);
+                } else if (log.tipo === 'Traslado (Solo Saldo)' || log.tipo === 'Traslado (Efectivo)') {
+                    if (log.banco_id) db.run("UPDATE saldos_bancarios SET saldo = saldo - ? WHERE banco_id = ?", [log.monto, log.banco_id]);
+                } else if (log.tipo === 'Envío a Tienda') {
+                    db.get("SELECT id, tienda_id FROM transacciones WHERE tipo = 'Resurtido Tesorería' AND ABS(monto_efectivo - ?) < 0.1 AND fecha_hora LIKE ? LIMIT 1", 
+                        [log.monto, log.fecha_hora.split(':')[0] + '%'], (err, tx) => {
+                            if (tx) {
+                                db.run("UPDATE tiendas SET efectivo_actual = efectivo_actual - ? WHERE id = ?", [log.monto, tx.tienda_id]);
+                                db.run("DELETE FROM transacciones WHERE id = ?", [tx.id]);
+                            }
+                        });
+                }
+            }
+
+            db.run("DELETE FROM tesoreria_log WHERE id = ?", [id]);
+            db.run('COMMIT', () => res.redirect('/tesoreria'));
+        });
+    });
+});
+
+app.post('/tesoreria/remesa/eliminar/:id', requireAdminOrContador, (req, res) => {
+    const id = req.params.id;
+    const { revertir } = req.body;
+
+    db.get("SELECT * FROM remesas WHERE id = ?", [id], (err, rem) => {
+        if (!rem) return res.redirect('/tesoreria');
+
+        db.serialize(() => {
+            db.run('BEGIN TRANSACTION');
+            
+            if (revertir === 'true') {
+                db.run("UPDATE tiendas SET efectivo_actual = efectivo_actual + ? WHERE id = ?", [rem.monto, rem.tienda_id]);
+            }
+
+            db.run("DELETE FROM remesas WHERE id = ?", [id]);
+            db.run('COMMIT', () => res.redirect('/tesoreria'));
+        });
+    });
+});
 
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Servidor de Solucels Control corriendo en el puerto ${PORT}`);
