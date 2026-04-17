@@ -56,7 +56,9 @@ app.use((req, res, next) => {
 });
 
 // Maintenance Mode Flag
-const MAINTENANCE_MODE = true; 
+// Detectamos si estamos en Railway verificando sus variables de entorno inyectadas
+const isRailway = !!(process.env.RAILWAY_PROJECT_ID || process.env.RAILWAY_ENVIRONMENT_NAME || process.env.RAILWAY_STATIC_URL);
+const MAINTENANCE_MODE = isRailway ? true : (process.env.MAINTENANCE_MODE === 'true');
 
 // Maintenance Middleware
 app.use((req, res, next) => {
