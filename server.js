@@ -102,7 +102,7 @@ function getLocalTime() {
     const minute = getPart('minute');
     const second = getPart('second');
     
-    return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+    return `${year}-${month}-${day} ${hour}:${minute}:${second}-06:00`;
 }
 
 const requireAuth = (req, res, next) => {
@@ -553,8 +553,12 @@ app.get('/tesoreria', requireAdminOrContador, (req, res) => {
             `;
             db.all(sqlRemesas, [], (err, remesasPendientes) => {
                 const sqlHistorial = `
-                    SELECT 'Remesa Recibida' as tipo_trans, r.id as log_id, r.monto, r.fecha_recepcion as fecha, t.nombre as origen, 'Efectivo' as via, r.observaciones as ref, 'remesa' as source_table
-                    FROM remesas r JOIN tiendas t ON r.tienda_id = t.id 
+                    SELECT 'Remesa Recibida' as tipo_trans, r.id as log_id, r.monto, r.fecha_recepcion as fecha, 
+                           t.nombre || ' (📦 ' || COALESCE(b.nombre, 'Otros/Suelto') || ')' as origen, 
+                           'Efectivo' as via, r.observaciones as ref, 'remesa' as source_table
+                    FROM remesas r 
+                    JOIN tiendas t ON r.tienda_id = t.id 
+                    LEFT JOIN bancos b ON r.banco_id = b.id
                     WHERE r.estado = 'Recibido' AND date(r.fecha_recepcion) = date(?)
                     UNION ALL
                     SELECT tl.tipo as tipo_trans, tl.id as log_id, tl.monto, tl.fecha_hora as fecha, 

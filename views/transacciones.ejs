@@ -105,10 +105,20 @@
                         else if(tx.tipo.includes('Gasto')) cls='type-gasto';
                         else cls='type-deposito';
                     %>
-                    <tr data-date="<%= new Date(tx.fecha_hora).toLocaleDateString('en-CA', { timeZone: 'America/Tegucigalpa' }) %>">
+                    <% 
+                        const parseLocal = (d) => {
+                            if (!d) return new Date();
+                            if (typeof d === 'string' && !d.includes('-06:00') && !d.includes('Z')) {
+                                return new Date(d.replace(' ', 'T') + '-06:00');
+                            }
+                            return new Date(d);
+                        };
+                        const txDate = parseLocal(tx.fecha_hora);
+                    %>
+                    <tr data-date="<%= txDate.toLocaleDateString('en-CA', { timeZone: 'America/Tegucigalpa' }) %>">
                         <td>
-                            <div style="font-weight: 600; font-size: 0.9rem;"><%= new Date(tx.fecha_hora).toLocaleDateString('es-HN', { timeZone: 'America/Tegucigalpa' }) %></div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted);"><%= new Date(tx.fecha_hora).toLocaleTimeString('es-HN', { timeZone: 'America/Tegucigalpa', hour: '2-digit', minute: '2-digit' }) %></div>
+                            <div style="font-weight: 600; font-size: 0.9rem;"><%= txDate.toLocaleDateString('es-HN', { timeZone: 'America/Tegucigalpa' }) %></div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);"><%= txDate.toLocaleTimeString('es-HN', { timeZone: 'America/Tegucigalpa', hour: '2-digit', minute: '2-digit' }) %></div>
                         </td>
                         <td style="font-weight: 600;"><%= tx.tienda_nombre %></td>
                         <td style="color: #aaa;"><%= tx.username %></td>
