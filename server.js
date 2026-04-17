@@ -55,6 +55,24 @@ app.use((req, res, next) => {
     next();
 });
 
+// Maintenance Mode Flag
+const MAINTENANCE_MODE = true; 
+
+// Maintenance Middleware
+app.use((req, res, next) => {
+    if (req.path.startsWith('/public') || req.path === '/favicon.ico') {
+        return next();
+    }
+
+    if (MAINTENANCE_MODE) {
+        if (req.session && req.session.user && req.session.user.rol === 'Admin') {
+            return next();
+        }
+        return res.render('maintenance');
+    }
+    next();
+});
+
 // Ayudante para Fecha Local (Honduras America/Tegucigalpa)
 function getLocalTime() {
     const now = new Date();
@@ -1540,14 +1558,8 @@ app.post('/tesoreria/cierre', requireAdminOrContador, (req, res) => {
 
                     db.run("INSERT INTO cierres_tesoreria (usuario_id, fecha_hora, saldos_json, total_efectivo, observaciones) VALUES (?, ?, ?, ?, ?)",
                         [usuId, now, JSON.stringify(finalSaldos), totalEfectivo, observaciones || 'Cierre Diario Automático'], (err) => {
-                            // Borrado físico tras el cierre para reiniciar datos
-                            db.serialize(() => {
-                                db.run("DELETE FROM tesoreria_log WHERE fecha_hora <= ?", [now]);
-                                db.run("DELETE FROM remesas WHERE estado = 'Recibido' AND fecha_recepcion <= ?", [now]);
-                                // Opcional: limpiar deudas ya pagadas
-                                db.run("DELETE FROM depositos_adelantados WHERE estado = 'Pagado'");
-                                res.redirect('/tesoreria?msg=cierre_ok');
-                            });
+                            if (err) console.error("Error al insertar cierre_tesoreria:", err);
+                            res.redirect('/tesoreria?msg=cierre_ok');
                         });
                 });
             });
