@@ -77,32 +77,47 @@
 <body>
     <div class="apertura-wrapper">
         <div class="apertura-card">
-            <div style="text-align: center; margin-bottom: 3.5rem;">
-                <div style="font-size: 4rem; margin-bottom: 1rem;">🏦</div>
-                <h1 style="font-size: 2.4rem; font-weight: 900; margin-bottom: 0.5rem;">Apertura de Caja</h1>
-                <p style="color: var(--text-muted); font-size: 1.1rem;">Registre el dinero físico disponible por banco para hoy.</p>
+            <div style="text-align: center; margin-bottom: 2.5rem;">
+                <div style="font-size: 3.5rem; margin-bottom: 0.5rem;">🏦</div>
+                <h1 style="font-size: 2.2rem; font-weight: 900; margin-bottom: 0.5rem;">Apertura de Caja</h1>
+                <p style="color: var(--text-muted); font-size: 1rem;">Registre el dinero físico disponible por banco para hoy.</p>
             </div>
 
             <form action="/apertura/nueva" method="POST">
                 <!-- SALDOS POR BANCO -->
-                <div class="section-title-apertura"><span>🏦</span> Efectivo por Banco</div>
+                <div class="section-title-apertura"><span>🏦</span> Saldo Sugerido por Banco</div>
                 <div class="bank-grid-apertura">
                     <% bancos.forEach(b => { %>
                         <div class="bank-input-card">
-                            <label class="bank-label" style="color: <%= b.color %>"><%= b.nombre %></label>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+                                <label class="bank-label" style="color: <%= b.color %>; margin-bottom: 0;"><%= b.nombre %></label>
+                                <% if(typeof saldosSugeridos !== 'undefined' && saldosSugeridos[b.id] > 0) { %>
+                                    <span style="font-size: 0.65rem; background: rgba(52, 201, 89, 0.15); color: #34C759; padding: 2px 8px; border-radius: 6px; font-weight: 800;">Sug: L <%= saldosSugeridos[b.id].toLocaleString() %></span>
+                                <% } %>
+                            </div>
                             <input type="text" name="banco_<%= b.id %>" class="input-apertura format-money" placeholder="0.00" required>
                         </div>
                     <% }) %>
+
+                    <!-- OTROS / SUELTO -->
+                    <div class="bank-input-card" style="border-style: dashed;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
+                            <label class="bank-label" style="color: #888; margin-bottom: 0;">Otros / Suelto</label>
+                            <% if(typeof saldosSugeridos !== 'undefined' && saldosSugeridos['Otros'] > 0) { %>
+                                <span style="font-size: 0.65rem; background: rgba(52, 201, 89, 0.15); color: #34C759; padding: 2px 8px; border-radius: 6px; font-weight: 800;">Sug: L <%= saldosSugeridos['Otros'].toLocaleString() %></span>
+                            <% } %>
+                        </div>
+                        <input type="text" name="banco_Otros" class="input-apertura format-money" placeholder="0.00" required>
+                    </div>
                 </div>
 
                 <div class="total-apertura-footer">
-                    <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem;">Cálculo Total Automático</div>
-                    <div id="totalLabel" style="font-size: 2rem; font-weight: 900; color: var(--accent-blue);">L 0.00</div>
-                    <!-- Campo oculto para enviar el total a saldo_inicial_efectivo -->
+                    <div style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 0.5rem;">Total de Apertura (Efectivo Físico)</div>
+                    <div id="totalLabel" style="font-size: 2.2rem; font-weight: 900; color: var(--accent-blue);">L 0.00</div>
                     <input type="hidden" name="monto_efectivo" id="hiddenTotal" value="0">
                 </div>
 
-                <button type="submit" class="btn btn-primary" style="width: 100%; padding: 2rem; font-size: 1.5rem; border-radius: 20px; font-weight: 900; box-shadow: 0 10px 40px rgba(10, 132, 255, 0.3);">
+                <button type="submit" class="btn btn-primary" style="width: 100%; padding: 1.8rem; font-size: 1.4rem; border-radius: 20px; font-weight: 900; box-shadow: 0 10px 40px rgba(10, 132, 255, 0.3);">
                     CONFIRMAR Y ABRIR CAJA
                 </button>
             </form>

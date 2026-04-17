@@ -5,35 +5,43 @@
     <title>Transacciones - Solucels Control Agentes Bancarios</title>
     <style>
         .filter-bar {
-            display: flex; gap: 1rem; margin-bottom: 1.5rem; background: var(--bg-card); padding: 1rem; border-radius: 8px; flex-wrap: wrap;
+            display: flex; gap: 1rem; margin-bottom: 2rem; background: rgba(255,255,255,0.02); padding: 1.5rem; border-radius: 12px; flex-wrap: wrap; border: 1px solid rgba(255,255,255,0.05); align-items: center; box-shadow: 0 4px 20px rgba(0,0,0,0.2);
         }
         .filter-control {
-            background: #121212; border: 1px solid #333; color: white; padding: 0.5rem; border-radius: 4px; font-family: 'Inter';
+            background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 0.75rem 1rem; border-radius: 8px; font-family: 'Inter'; flex: 1; min-width: 150px; outline: none; transition: 0.3s; font-size: 0.95rem;
         }
-        table {
-            width: 100%; border-collapse: collapse; background: var(--bg-card); border-radius: 8px; overflow: hidden;
+        .filter-control:focus { border-color: var(--accent-blue); box-shadow: 0 0 0 2px rgba(10,132,255,0.2); }
+        .filter-label { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.4rem; display: block; }
+        
+        .tx-container {
+            background: rgba(255,255,255,0.02); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
         }
-        th, td {
-            padding: 1rem; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.9rem;
-        }
-        th { font-weight: 600; color: var(--text-muted); background: rgba(0,0,0,0.2); }
-        .type-badge { padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; font-weight: 600; }
-        .type-ingreso { background: rgba(40, 167, 69, 0.2); color: #28a745; }
-        .type-retiro { background: rgba(220, 53, 69, 0.2); color: #dc3545; }
-        .type-pago { background: rgba(23, 162, 184, 0.2); color: #17a2b8; }
-        .type-gasto { background: rgba(255, 193, 7, 0.2); color: #ffc107; }
-        .type-deposito { background: rgba(10, 132, 255, 0.2); color: var(--accent-blue); }
-        .btn-action { background: none; border: none; cursor: pointer; padding: 0.4rem; border-radius: 4px; transition: all 0.2s; }
-        .btn-edit { color: var(--accent-blue); }
-        .btn-edit:hover { background: rgba(10, 132, 255, 0.1); }
-        .btn-delete { color: #dc3545; }
-        .btn-delete:hover { background: rgba(220, 53, 69, 0.1); }
+        table { width: 100%; border-collapse: collapse; }
+        thead { background: rgba(0,0,0,0.3); }
+        th, td { padding: 1.2rem 1rem; text-align: left; font-size: 0.95rem; border-bottom: 1px solid rgba(255,255,255,0.03); }
+        th { font-weight: 700; color: #aaa; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; }
+        tbody tr { transition: 0.2s; }
+        tbody tr:hover { background: rgba(10,132,255,0.05); }
+        
+        .type-badge { padding: 0.3rem 0.6rem; border-radius: 6px; font-size: 0.8rem; font-weight: 700; display: inline-block; letter-spacing: 0.5px; }
+        .type-ingreso { background: rgba(52, 199, 89, 0.15); color: #34c759; border: 1px solid rgba(52, 199, 89, 0.2); }
+        .type-retiro { background: rgba(255, 69, 58, 0.15); color: #ff453a; border: 1px solid rgba(255, 69, 58, 0.2); }
+        .type-pago { background: rgba(10, 132, 255, 0.15); color: #0a84ff; border: 1px solid rgba(10, 132, 255, 0.2); }
+        .type-gasto { background: rgba(255, 159, 10, 0.15); color: #ff9f0a; border: 1px solid rgba(255, 159, 10, 0.2); }
+        .type-deposito { background: rgba(191, 90, 242, 0.15); color: #bf5af2; border: 1px solid rgba(191, 90, 242, 0.2); }
+        
+        .btn-action { background: none; border: none; cursor: pointer; padding: 0.5rem; border-radius: 6px; transition: all 0.2s; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; }
+        .btn-edit { color: #0a84ff; background: rgba(10,132,255,0.1); }
+        .btn-edit:hover { background: rgba(10,132,255,0.2); transform: scale(1.05); }
+        .btn-delete { color: #ff453a; background: rgba(255,69,58,0.1); }
+        .btn-delete:hover { background: rgba(255,69,58,0.2); transform: scale(1.05); }
         
         /* Modal Styles */
         .modal { display: none; position: fixed; z-index: 2000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); }
-        .modal-content { background: var(--bg-card); margin: 10% auto; padding: 2rem; border-radius: 16px; width: 90%; max-width: 450px; border: 1px solid #333; }
-        .modal-header { font-size: 1.2rem; font-weight: 700; margin-bottom: 1.5rem; color: var(--accent-blue); display: flex; justify-content: space-between; align-items: center; }
-        .close-modal { color: var(--text-muted); cursor: pointer; font-size: 1.5rem; }
+        .modal-content { background: var(--bg-card); margin: 5% auto; padding: 2.5rem; border-radius: 20px; width: 90%; max-width: 450px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        .modal-header { font-size: 1.3rem; font-weight: 800; margin-bottom: 1.5rem; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+        .close-modal { color: #888; cursor: pointer; font-size: 1.8rem; transition: 0.2s; }
+        .close-modal:hover { color: #ff453a; }
     </style>
 </head>
 <body>
@@ -49,19 +57,31 @@
 
         <div class="filter-bar">
             <% if(user && user.rol !== 'Cajero') { %>
-                <select class="filter-control" id="filt-tienda">
-                    <option value="">Todas las Tiendas</option>
-                    <% tiendas.forEach(t => { %> <option value="<%= t.nombre %>"><%= t.nombre %></option> <% }) %>
-                </select>
+                <div style="flex: 1;">
+                    <span class="filter-label">Tienda</span>
+                    <select class="filter-control" id="filt-tienda" style="width: 100%;">
+                        <option value="">Todas las Tiendas</option>
+                        <% tiendas.forEach(t => { %> <option value="<%= t.nombre %>"><%= t.nombre %></option> <% }) %>
+                    </select>
+                </div>
             <% } %>
-            <select class="filter-control" id="filt-banco">
-                <option value="">Todos los Bancos</option>
-                <% bancos.forEach(b => { %> <option value="<%= b.nombre %>"><%= b.nombre %></option> <% }) %>
-            </select>
-            <input type="date" class="filter-control" id="filt-fecha">
+            <div style="flex: 1;">
+                <span class="filter-label">Banco</span>
+                <select class="filter-control" id="filt-banco" style="width: 100%;">
+                    <option value="">Todos los Bancos</option>
+                    <% bancos.forEach(b => { %> <option value="<%= b.nombre %>"><%= b.nombre %></option> <% }) %>
+                </select>
+            </div>
+            <div style="flex: 1;">
+                <span class="filter-label">Fecha de Operación</span>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <input type="date" class="filter-control" id="filt-fecha" style="width: 100%;">
+                    <button class="btn btn-primary" onclick="document.getElementById('filt-fecha').value=''; filterTable();" style="padding: 0.75rem 1rem; border-radius: 8px; font-weight: bold; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff;" title="Ver todas las fechas">Todo</button>
+                </div>
+            </div>
         </div>
 
-        <div style="overflow-x: auto;">
+        <div class="tx-container" style="overflow-x: auto;">
             <table id="txTable">
                 <thead>
                     <tr>
@@ -70,33 +90,36 @@
                         <th>Usuario</th>
                         <th>Banco</th>
                         <th>Tipo</th>
-                        <th>Monto Efectivo (L)</th>
-                        <th>Monto Banco (L)</th>
+                        <th>Caja (L)</th>
+                        <th>Banco (L)</th>
                         <th>Referencia</th>
-                        <% if(user.rol !== 'Cajero') { %><th>Acciones</th><% } %>
+                        <% if(user.rol !== 'Cajero') { %><th style="text-align: right;">Acciones</th><% } %>
                     </tr>
                 </thead>
                 <tbody>
                     <% transacciones.forEach(tx => { 
                         let cls = '';
-                        if(tx.tipo === 'Ingreso') cls='type-ingreso';
-                        else if(tx.tipo === 'Retiro') cls='type-retiro';
+                        if(tx.tipo === 'Ingreso' || tx.tipo === 'Sobrante' || tx.tipo.includes('Resurtido')) cls='type-ingreso';
+                        else if(tx.tipo === 'Retiro' || tx.tipo === 'Faltante') cls='type-retiro';
                         else if(tx.tipo === 'Pago Servicio') cls='type-pago';
-                        else if(tx.tipo === 'Gasto') cls='type-gasto';
+                        else if(tx.tipo.includes('Gasto')) cls='type-gasto';
                         else cls='type-deposito';
                     %>
-                    <tr>
-                        <td><%= new Date(tx.fecha_hora).toLocaleString('es-HN') %></td>
-                        <td><%= tx.tienda_nombre %></td>
-                        <td><%= tx.username %></td>
-                        <td><%= tx.banco_nombre || '-' %></td>
-                        <td><span class="type-badge <%= cls %>"><%= tx.tipo %></span></td>
-                        <td style="color: <%= tx.monto_efectivo >= 0 ? '#28a745' : '#dc3545' %>"><%= tx.monto_efectivo > 0 ? '+' : '' %><%= tx.monto_efectivo.toFixed(2) %></td>
-                        <td style="color: <%= tx.monto_banco >= 0 ? '#28a745' : '#dc3545' %>"><%= tx.monto_banco > 0 ? '+' : '' %><%= tx.monto_banco.toFixed(2) %></td>
-                        <td><%= tx.referencia || '-' %></td>
-                        <% if(user.rol !== 'Cajero') { %>
+                    <tr data-date="<%= new Date(tx.fecha_hora).toLocaleDateString('en-CA', { timeZone: 'America/Tegucigalpa' }) %>">
                         <td>
-                            <div style="display: flex; gap: 0.5rem;">
+                            <div style="font-weight: 600; font-size: 0.9rem;"><%= new Date(tx.fecha_hora).toLocaleDateString('es-HN', { timeZone: 'America/Tegucigalpa' }) %></div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);"><%= new Date(tx.fecha_hora).toLocaleTimeString('es-HN', { timeZone: 'America/Tegucigalpa', hour: '2-digit', minute: '2-digit' }) %></div>
+                        </td>
+                        <td style="font-weight: 600;"><%= tx.tienda_nombre %></td>
+                        <td style="color: #aaa;"><%= tx.username %></td>
+                        <td style="font-weight: 700; color: #fff;"><%= tx.banco_nombre || '---' %></td>
+                        <td><span class="type-badge <%= cls %>"><%= tx.tipo %></span></td>
+                        <td style="font-weight: 700; color: <%= tx.monto_efectivo > 0 ? '#34c759' : (tx.monto_efectivo < 0 ? '#ff453a' : '#888') %>"><%= tx.monto_efectivo > 0 ? '+' : '' %><%= tx.monto_efectivo.toFixed(2) %></td>
+                        <td style="font-weight: 700; color: <%= tx.monto_banco > 0 ? '#34c759' : (tx.monto_banco < 0 ? '#ff453a' : '#888') %>"><%= tx.monto_banco > 0 ? '+' : '' %><%= tx.monto_banco.toFixed(2) %></td>
+                        <td style="color: #ccc; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="<%= tx.referencia %>"><%= tx.referencia || '-' %></td>
+                        <% if(user.rol !== 'Cajero') { %>
+                        <td style="text-align: right;">
+                            <div style="display: flex; gap: 0.4rem; justify-content: flex-end;">
                                 <button class="btn-action btn-edit" onclick="openEditModal('<%= tx.id %>', '<%= Math.abs(tx.monto_efectivo) + Math.abs(tx.monto_banco) %>', '<%= tx.referencia %>')" title="Editar">✎</button>
                                 <form action="/transacciones/eliminar/<%= tx.id %>" method="POST" style="display:inline;" onsubmit="return confirm('¿Está SEGURO de eliminar esta transacción? Los saldos se revertirán automáticamente.')">
                                     <button type="submit" class="btn-action btn-delete" title="Eliminar">🗑</button>
@@ -153,10 +176,18 @@
             if (event.target == document.getElementById('editModal')) closeEditModal();
         }
 
-        // Simple client-side filtering matching the clean aesthetic requirements
-        document.querySelectorAll('.filter-control').forEach(el => {
-            el.addEventListener('change', filterTable);
-            el.addEventListener('input', filterTable);
+        document.addEventListener('DOMContentLoaded', () => {
+            const dateInput = document.getElementById('filt-fecha');
+            // Cargar fecha actual por defecto en zona horaria de Honduras
+            const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Tegucigalpa' }).format(new Date());
+            dateInput.value = today;
+
+            document.querySelectorAll('.filter-control').forEach(el => {
+                el.addEventListener('change', filterTable);
+                el.addEventListener('input', filterTable);
+            });
+
+            filterTable(); // Aplicar el filtro inmediatamente
         });
 
         function filterTable() {
@@ -166,11 +197,8 @@
 
             const rows = document.querySelectorAll('#txTable tbody tr');
             rows.forEach(row => {
-                const rowDateRaw = row.cells[0].innerText; 
-                // Convierte "dd/mm/yyyy, hh:mm" a "yyyy-mm-dd" para comparar simple
-                const rowDateSplit = rowDateRaw.split(',')[0].split('/');
-                let rowDateFormatted = '';
-                if(rowDateSplit.length === 3) rowDateFormatted = `${rowDateSplit[2]}-${rowDateSplit[1].padStart(2,'0')}-${rowDateSplit[0].padStart(2,'0')}`;
+                // Leer el atributo data-date que viene directo desde EJS (no propenso a errores de split)
+                const rowDateFormatted = row.getAttribute('data-date');
                 
                 const rowTienda = row.cells[1].innerText.toLowerCase();
                 const rowBanco = row.cells[3].innerText.toLowerCase();

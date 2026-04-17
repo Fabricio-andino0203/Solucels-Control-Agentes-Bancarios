@@ -34,17 +34,24 @@
                     <div class="audit-stat-card" style="border-top: 4px solid <%= bColor %>;">
                         <div class="audit-stat-label">Saldo en Cuenta: <%= b.nombre %></div>
                         <div class="audit-stat-value" style="color: <%= bColor %>;">L <%= (b.saldo_cuenta || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></div>
-                        <div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-muted); font-weight: 500;">
-                            Efectivo en Tiendas: <span style="color: #fff;">L <%= Math.abs(b.efectivo_tiendas || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></span>
+                        <div style="margin-top: 0.8rem; font-size: 0.8rem; color: var(--text-muted); font-weight: 500; display:flex; justify-content:space-between; border-top:1px solid rgba(255,255,255,0.05); padding-top:0.4rem;">
+                            <span>En Tiendas: <strong style="color: #fff;">L <%= Math.abs(b.efectivo_tiendas || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></strong></span>
+                            <span>En Tesorería: <strong style="color: var(--accent-blue);">L <%= Math.abs(b.efectivo_tesoreria || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></strong></span>
                         </div>
                     </div>
                 <% }); %>
                 
-                <!-- EFECTIVO EN TRÁNSITO -->
-                <div class="audit-stat-card" style="border-left: 4px solid var(--accent-blue);">
-                    <div class="audit-stat-label">Efectivo en Tránsito (Recolectado)</div>
-                    <div class="audit-stat-value text-blue-audit">L <%= Math.abs(enTransito || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></div>
+                <% if (tesoreriaOtros > 0) { %>
+                <div class="audit-stat-card" style="border-left: 4px solid #8e8e93;">
+                    <div class="audit-stat-label">Efectivo Físico en Tesorería (Suelto/Otros)</div>
+                    <div class="audit-stat-value" style="color: #fff;">L <%= tesoreriaOtros.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></div>
+                    <div style="margin-top: 0.8rem; font-size: 0.8rem; color: var(--text-muted); font-weight: 500; border-top:1px solid rgba(255,255,255,0.05); padding-top:0.4rem;">
+                        Recibido de tiendas, pendiente de depósito o asignación.
+                    </div>
                 </div>
+                <% } %>
+                
+                <!-- La tarjeta de EFECTIVO EN TRÁNSITO ha sido eliminada por solicitud -->
             </div>
 
             <!-- FILTRO DE AUDITORÍA -->
@@ -104,9 +111,23 @@
                     <% referenciasTiendas.forEach(function(ref) { %>
                     <div style="background: var(--bg-card); border-radius: 14px; border: 1px solid rgba(255,255,255,0.06); overflow: hidden;">
                         <div style="padding: 0.85rem 1.1rem; background: rgba(10,132,255,0.07); border-bottom: 1px solid rgba(10,132,255,0.15); display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-size: 0.9rem; font-weight: 800; color: var(--accent-blue);"><%= ref.tienda_nombre %></span>
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="font-size: 0.9rem; font-weight: 800; color: var(--accent-blue);"><%= ref.tienda_nombre %></span>
+                                <% if(ref.estado_caja === 'Abierta') { %>
+                                    <span style="font-size: 0.65rem; background: rgba(52,199,89,0.2); color: #34c759; padding: 2px 6px; border-radius: 4px; font-weight: 700; letter-spacing: 0.5px;">🟢 ABIERTA</span>
+                                <% } else if(ref.estado_caja === 'Cerrada' && ref.cierre_info) { %>
+                                    <% if(ref.cierre_info.diferencia === 0) { %>
+                                        <span style="font-size: 0.65rem; background: rgba(255,255,255,0.1); color: #ccc; padding: 2px 6px; border-radius: 4px; font-weight: 700; letter-spacing: 0.5px;">⚪ CERRADA (L 0.00)</span>
+                                    <% } else { %>
+                                        <span style="font-size: 0.65rem; background: rgba(255,69,58,0.2); color: #ff453a; padding: 2px 6px; border-radius: 4px; font-weight: 700; letter-spacing: 0.5px;" title="Diferencia de Cierre: L <%= ref.cierre_info.diferencia %>">🔴 CERRADA (<%= ref.cierre_info.diferencia > 0 ? '+' : '' %><%= ref.cierre_info.diferencia.toFixed(2) %>)</span>
+                                    <% } %>
+                                <% } else { %>
+                                    <span style="font-size: 0.65rem; background: rgba(142,142,147,0.2); color: #8e8e93; padding: 2px 6px; border-radius: 4px; font-weight: 700; letter-spacing: 0.5px;">⚫ SIN ABRIR</span>
+                                <% } %>
+                            </div>
                             <span style="font-size: 0.75rem; color: var(--text-muted);">Actual: <strong style="color:#fff;">L <%= (ref.efectivo_actual||0).toLocaleString('es-HN',{minimumFractionDigits:2}) %></strong></span>
                         </div>
+                        <% if (ref.estado_caja === 'Abierta') { %>
                         <div style="padding: 0.85rem 1.1rem;">
                             <div style="font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.6rem;">Inicial + Operaciones del Día</div>
                             <% ref.bancos.forEach(function(b) { %>
@@ -125,6 +146,19 @@
                                 <span style="font-size:0.95rem; font-weight:900; color:var(--accent-blue);">L <%= ref.totalEsperado.toLocaleString('es-HN',{minimumFractionDigits:2}) %></span>
                             </div>
                         </div>
+                        <% } else if (ref.estado_caja === 'Cerrada') { %>
+                        <div style="padding: 1.5rem; text-align: center; border-top: 1px solid rgba(255,255,255,0.05);">
+                            <div style="font-size: 2rem; margin-bottom: 0.5rem; opacity: 0.7;">🔒</div>
+                            <div style="font-size: 0.9rem; font-weight: 700; color: #8e8e93; letter-spacing: 0.5px;">CAJA CERRADA</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem; padding: 0 1rem;">El efectivo del día fue procesado y entregado a Tesorería.</div>
+                        </div>
+                        <% } else { %>
+                        <div style="padding: 1.5rem; text-align: center; border-top: 1px solid rgba(255,255,255,0.05);">
+                            <div style="font-size: 2rem; margin-bottom: 0.5rem; opacity: 0.5;">💤</div>
+                            <div style="font-size: 0.9rem; font-weight: 700; color: #8e8e93; letter-spacing: 0.5px;">AÚN SIN APERTURAR</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.4rem; padding: 0 1rem;">La tienda no ha iniciado operaciones el día de hoy.</div>
+                        </div>
+                        <% } %>
                     </div>
                     <% }); %>
                 </div>

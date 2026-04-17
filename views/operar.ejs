@@ -108,92 +108,102 @@
     <!-- MODAL DE CORTE DE CAJA -->
     <% if (user && user.rol === 'Cajero') { %>
     <div id="modalCierre" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:flex-start; overflow-y:auto; padding:2rem;">
-        <div style="background:var(--bg-card); width:100%; max-width:600px; border-radius:16px; border:1px solid rgba(255,255,255,0.1); position:relative; overflow:hidden;">
+        <div style="background:var(--bg-card); width:100%; max-width:900px; border-radius:16px; border:1px solid rgba(255,255,255,0.1); position:relative; overflow:hidden;">
             <button type="button" onclick="cerrarModalCierre()" style="position:absolute; top:1.2rem; right:1.5rem; background:none; border:none; color:#fff; font-size:1.5rem; cursor:pointer;">&times;</button>
             <div style="padding:1.5rem; background:rgba(227,160,0,0.1); border-bottom:1px solid rgba(227,160,0,0.2);">
                 <h2 style="color:#E3A000; margin:0; font-size:1.4rem;">🔒 Corte de Caja Oficial</h2>
-                <p style="margin:0.2rem 0 0 0; font-size:0.85rem; color:var(--text-muted);">Realiza el arqueo y cierre de la caja actual.</p>
+                <p style="margin:0.2rem 0 0 0; font-size:0.85rem; color:var(--text-muted);">Realiza el arqueo y cierre de la caja declarando el físico y la entrega al contador.</p>
                 <div style="margin-top:0.5rem; font-size: 0.9rem; color: #fff;">
                     Sistema espera: <strong style="color:var(--accent-blue);">L <%= tienda ? Math.abs(tienda.efectivo_actual).toLocaleString('es-HN',{minimumFractionDigits:2}) : '0.00' %></strong> en caja
                 </div>
             </div>
+            
             <form action="/cierres/nuevo" method="POST" id="cierreFormModal" style="padding:1.5rem;">
-                
-                <!-- PASO 1 -->
-                <div style="margin-bottom:1.5rem;">
-                    <div style="font-weight:bold; font-size:1.1rem; margin-bottom:1rem; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:0.5rem;">1. ¿Cuánto tienes físico por banco?</div>
-                    <% 
-                    let totalEsperadoBancos = 0;
-                    bancos.forEach(b => { 
-                        let esperadoB = fisicoPorBanco[b.id] || 0;
-                        totalEsperadoBancos += esperadoB;
-                    %>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-                        <div style="display:flex; flex-direction:column;">
-                            <span style="color:<%= b.color || '#aaa' %>; font-size:0.9rem; font-weight:600;"><%= b.nombre %></span>
-                            <span style="font-size:0.75rem; color:var(--text-muted);">Esperado: <strong>L <%= esperadoB.toLocaleString('es-HN', {minimumFractionDigits:2}) %></strong></span>
+                <div style="display: flex; gap: 2rem; flex-wrap: wrap;">
+                    
+                    <!-- PASO 1 -->
+                    <div style="flex: 1; min-width: 300px;">
+                        <div style="font-weight:bold; font-size:1.1rem; margin-bottom:1rem; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:0.5rem; color: #E3A000;">1. Declarar Efectivo Físico</div>
+                        <p style="font-size: 0.8rem; color: #888; margin-bottom: 1rem;">Ingresa cuánto dinero físico contaste en caja.</p>
+                        <% 
+                        let totalEsperadoBancos = 0;
+                        bancos.forEach(b => { 
+                            let esperadoB = fisicoPorBanco[b.id] || 0;
+                            totalEsperadoBancos += esperadoB;
+                        %>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                            <div style="display:flex; flex-direction:column;">
+                                <span style="color:<%= b.color || '#aaa' %>; font-size:0.95rem; font-weight:600;"><%= b.nombre %></span>
+                                <span style="font-size:0.75rem; color:var(--text-muted);">Esperado: <strong>L <%= esperadoB.toLocaleString('es-HN', {minimumFractionDigits:2}) %></strong></span>
+                            </div>
+                            <input type="text" name="banco_<%= b.id %>" data-banco-nombre="<%= b.nombre %>" data-banco-color="<%= b.color %>" class="form-control money-input close-declare" style="width:130px; background:rgba(0,0,0,0.3); color:#fff; border:1px solid rgba(255,255,255,0.1);" placeholder="L 0.00">
                         </div>
-                        <input type="text" name="banco_<%= b.id %>" data-banco-nombre="<%= b.nombre %>" data-banco-color="<%= b.color %>" class="form-control money-input close-declare" style="width:150px; background:rgba(0,0,0,0.3); color:#fff;" placeholder="L 0.00">
-                    </div>
-                    <% }); %>
-                    <% 
-                    let totalGeneralEsperado = tienda ? Math.abs(tienda.efectivo_actual) : 0;
-                    let esperadoOtros = totalGeneralEsperado - totalEsperadoBancos;
-                    if (esperadoOtros < 0) esperadoOtros = 0; 
-                    %>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-                        <div style="display:flex; flex-direction:column;">
-                            <span style="color:#888; font-size:0.9rem; font-weight:600;">Otros / Suelto</span>
-                            <span style="font-size:0.75rem; color:var(--text-muted);">Esperado: <strong>L <%= esperadoOtros.toLocaleString('es-HN', {minimumFractionDigits:2}) %></strong></span>
+                        <% }); %>
+                        <% 
+                        let totalGeneralEsperado = tienda ? Math.abs(tienda.efectivo_actual) : 0;
+                        let esperadoOtros = totalGeneralEsperado - totalEsperadoBancos;
+                        if (esperadoOtros < 0) esperadoOtros = 0; 
+                        %>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
+                            <div style="display:flex; flex-direction:column;">
+                                <span style="color:#888; font-size:0.95rem; font-weight:600;">Otros / Suelto</span>
+                                <span style="font-size:0.75rem; color:var(--text-muted);">Esperado: <strong>L <%= esperadoOtros.toLocaleString('es-HN', {minimumFractionDigits:2}) %></strong></span>
+                            </div>
+                            <input type="text" name="banco_Otros" data-banco-nombre="Otros / Suelto" data-banco-color="#888" class="form-control money-input close-declare" style="width:130px; background:rgba(0,0,0,0.3); color:#fff; border:1px solid rgba(255,255,255,0.1);" placeholder="L 0.00">
                         </div>
-                        <input type="text" name="banco_Otros" data-banco-nombre="Otros / Suelto" data-banco-color="#888" class="form-control money-input close-declare" style="width:150px; background:rgba(0,0,0,0.3); color:#fff;" placeholder="L 0.00">
+                    </div>
+
+                    <!-- PASO 2 -->
+                    <div style="flex: 1; min-width: 300px;">
+                        <div style="font-weight:bold; font-size:1.1rem; margin-bottom:1rem; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:0.5rem; color: #0a84ff;">2. Entrega a Tesorería</div>
+                        <p style="font-size: 0.8rem; color: #888; margin-bottom: 1rem;">Ingresa cuánto efectivo envías al Contador.</p>
+                        <% bancos.forEach(b => { %>
+                        <div style="display:flex; justify-content:space-between; align-items:center; height: 42px; margin-bottom:0.75rem;">
+                            <span style="color:<%= b.color || '#aaa' %>; font-size:0.95rem; font-weight:600;"><%= b.nombre %></span>
+                            <input type="text" name="entrega_banco_<%= b.id %>" class="form-control money-input close-delivery" style="width:130px; background:rgba(10,132,255,0.1); color:#fff; border:1px solid rgba(10,132,255,0.3);" placeholder="L 0.00">
+                        </div>
+                        <% }); %>
+                        <div style="display:flex; justify-content:space-between; align-items:center; height: 42px; margin-bottom:0.75rem;">
+                            <span style="color:#888; font-size:0.95rem; font-weight:600;">Otros / Suelto</span>
+                            <input type="text" name="entrega_banco_Otros" class="form-control money-input close-delivery" style="width:130px; background:rgba(10,132,255,0.1); color:#fff; border:1px solid rgba(10,132,255,0.3);" placeholder="L 0.00">
+                        </div>
                     </div>
                 </div>
 
-                <!-- RESUMEN AUTOMATICO -->
-                <div id="resumenDeclareModal" style="display:none; padding:1rem; border-radius:10px; background:rgba(0,0,0,0.2); border:1px solid #333; margin-bottom:1.5rem;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
-                        <span style="color:var(--text-muted); font-size:0.9rem;">Total declarado:</span>
-                        <span id="totalDeclaradoModal" style="font-weight:bold; font-size:1rem;">L 0.00</span>
+                <div style="border-top: 1px solid rgba(255,255,255,0.05); margin-top: 1rem; padding-top: 1.5rem;">
+                    
+                    <!-- RESUMEN AUTOMATICO -->
+                    <div id="resumenDeclareModal" style="display:none; padding:1.25rem; border-radius:12px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.05); margin-bottom:1.5rem;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:0.5rem;">
+                            <span style="color:var(--text-muted); font-size:0.9rem;">Total Efectivo Declarado:</span>
+                            <span id="totalDeclaradoModal" style="font-weight:bold; font-size:1.1rem; color:#fff;">L 0.00</span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid rgba(255,255,255,0.05); padding-top:0.75rem; margin-top:0.5rem;">
+                            <span style="font-size:0.9rem; font-weight:bold; color:#aaa;">Discrepancia del Día:</span>
+                            <div>
+                                <span id="diferenciaLabelModal" style="font-weight:bold; font-size:1.1rem;"></span>
+                            </div>
+                        </div>
+                        <div id="estadoLabelModal" style="margin-top:0.75rem; font-size:0.85rem; font-weight:bold; text-align:center; padding:0.6rem; border-radius:8px;"></div>
+                        <p id="sobranteInfo" style="display:none; font-size: 0.75rem; color:#888; text-align:center; margin-top: 0.5rem;">* El excedente será automáticamente inyectado al saldo de la tienda para cuadrar el balance físico con el global.</p>
                     </div>
-                    <div style="display:flex; justify-content:space-between; border-top:1px solid #333; padding-top:0.5rem;">
-                        <span style="font-size:0.9rem; font-weight:bold;">Diferencia:</span>
-                        <span id="diferenciaLabelModal" style="font-weight:bold; font-size:1rem;"></span>
+
+                    <!-- RESUMEN FINAL -->
+                    <div style="background:rgba(52,199,89,0.08); border:1px solid rgba(52,199,89,0.3); padding:1rem; border-radius:10px; margin-bottom:1.5rem;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:1rem; font-weight:bold; color:#34C759;">Saldo que queda para mañana:</span>
+                            <span id="saldoFinalCierreModal" style="font-size:1.4rem; font-weight:bold; color:#34C759;">L 0.00</span>
+                        </div>
+                        <div id="saldoFinalPorBancoContainer" style="margin-top: 1rem; display: none;"></div>
                     </div>
-                    <div id="estadoLabelModal" style="margin-top:0.5rem; font-size:0.8rem; font-weight:bold; text-align:center; padding:0.4rem; border-radius:6px;"></div>
+
+                    <div style="margin-bottom:1.5rem;">
+                        <label style="font-size:0.9rem; color:var(--text-muted); display:block; margin-bottom:0.5rem;">Observaciones (Opcional)</label>
+                        <input type="text" name="observaciones" class="form-control" style="background:rgba(0,0,0,0.3); color:#fff; border:1px solid rgba(255,255,255,0.1);" placeholder="Ej: Faltaron L 5 por pago de botellón de agua...">
+                    </div>
+
+                    <button type="submit" class="btn btn-warning" style="width:100%; background:#E3A000; color:#fff; font-size:1.15rem; padding:15px; font-weight:bold; border:none; border-radius:8px; text-transform: uppercase; letter-spacing: 1px; box-shadow: 0 4px 15px rgba(227,160,0,0.3);">✅ Registrar Cierre Oficial</button>
                 </div>
-
-                <!-- PASO 2 -->
-                <div style="margin-bottom:1.5rem;">
-                    <div style="font-weight:bold; font-size:1.1rem; margin-bottom:1rem; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:0.5rem;">2. ¿Cuánto entregas al Contador?</div>
-                    <% bancos.forEach(b => { %>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-                        <span style="color:<%= b.color || '#aaa' %>; font-size:0.9rem; font-weight:600;"><%= b.nombre %></span>
-                        <input type="text" name="entrega_banco_<%= b.id %>" class="form-control money-input close-delivery" style="width:150px; background:rgba(0,0,0,0.3); color:#fff;" placeholder="L 0.00">
-                    </div>
-                    <% }); %>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
-                        <span style="color:#888; font-size:0.9rem; font-weight:600;">Otros / Suelto</span>
-                        <input type="text" name="entrega_banco_Otros" class="form-control money-input close-delivery" style="width:150px; background:rgba(0,0,0,0.3); color:#fff;" placeholder="L 0.00">
-                    </div>
-                </div>
-
-                <!-- RESUMEN FINAL -->
-                <div style="background:rgba(52,199,89,0.08); border:1px solid rgba(52,199,89,0.3); padding:1rem; border-radius:10px; margin-bottom:1.5rem;">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-size:0.9rem; font-weight:bold; color:#34C759;">Saldo que queda mañana:</span>
-                        <span id="saldoFinalCierreModal" style="font-size:1.2rem; font-weight:bold; color:#34C759;">L 0.00</span>
-                    </div>
-                    <div id="saldoFinalPorBancoContainer" style="margin-top: 1rem; display: none;"></div>
-                </div>
-
-                <div style="margin-bottom:1.5rem;">
-                    <label style="font-size:0.9rem; color:var(--text-muted); display:block; margin-bottom:0.5rem;">Observaciones (Opcional)</label>
-                    <input type="text" name="observaciones" class="form-control" style="background:rgba(0,0,0,0.3); color:#fff;" placeholder="Ej: Faltaron L 5 por...">
-                </div>
-
-                <button type="submit" class="btn btn-warning" style="width:100%; background:#E3A000; color:#fff; font-size:1.1rem; padding:12px; font-weight:bold; border:none; border-radius:8px;">✅ Registrar Cierre Oficial</button>
-
             </form>
         </div>
     </div>
@@ -324,13 +334,16 @@
 
             if (Math.abs(diff) < 0.01) {
                 difEl.textContent = 'L 0.00 ✓'; difEl.style.color = '#34C759';
-                estEl.textContent = '✅ CUADRA PERFECTO'; estEl.style.cssText = 'background:rgba(52,199,89,0.1); color:#34C759; text-align:center; margin-top:0.5rem; padding:5px; border-radius:5px;';
+                estEl.textContent = '✅ CUADRA PERFECTO'; estEl.style.cssText = 'background:rgba(52,199,89,0.1); color:#34C759; text-align:center; margin-top:0.5rem; padding:8px; border-radius:5px; border: 1px solid rgba(52,199,89,0.2);';
+                document.getElementById('sobranteInfo').style.display = 'none';
             } else if (diff < 0) {
                 difEl.textContent = '⚠ Faltan L ' + Math.abs(diff).toLocaleString('es-HN', {minimumFractionDigits:2}); difEl.style.color = '#FF453A';
-                estEl.textContent = 'FALTA EFECTIVO — Revisar'; estEl.style.cssText = 'background:rgba(255,69,58,0.1); color:#FF453A; text-align:center; margin-top:0.5rem; padding:5px; border-radius:5px;';
+                estEl.textContent = '🔻 FALTA EFECTIVO — Se descontará automáticamente de la caja'; estEl.style.cssText = 'background:rgba(255,69,58,0.1); color:#FF453A; text-align:center; margin-top:0.5rem; padding:8px; border-radius:5px; border: 1px solid rgba(255,69,58,0.2);';
+                document.getElementById('sobranteInfo').style.display = 'none';
             } else {
-                difEl.textContent = 'Sobran L ' + diff.toLocaleString('es-HN', {minimumFractionDigits:2}); difEl.style.color = '#FF9F0A';
-                estEl.textContent = '🔶 SOBRA EFECTIVO — Verificar'; estEl.style.cssText = 'background:rgba(255,159,10,0.1); color:#FF9F0A; text-align:center; margin-top:0.5rem; padding:5px; border-radius:5px;';
+                difEl.textContent = 'Sobran L ' + diff.toLocaleString('es-HN', {minimumFractionDigits:2}); difEl.style.color = '#0a84ff';
+                estEl.textContent = '🔶 SOBRA EFECTIVO — Ingresará a la caja'; estEl.style.cssText = 'background:rgba(10,132,255,0.1); color:#0a84ff; text-align:center; margin-top:0.5rem; padding:8px; border-radius:5px; border: 1px solid rgba(10,132,255,0.2);';
+                document.getElementById('sobranteInfo').style.display = 'block';
             }
 
             const containerList = document.getElementById('saldoFinalPorBancoContainer');
@@ -348,6 +361,38 @@
 
         function abrirModalCierre() { document.getElementById('modalCierre').style.display = 'flex'; }
         function cerrarModalCierre() { document.getElementById('modalCierre').style.display = 'none'; }
+        
+        // 5:55 PM Reminder Logic
+        <% if (user && user.rol === 'Cajero') { %>
+        setInterval(() => {
+            const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Tegucigalpa' }));
+            if (d.getHours() === 17 && d.getMinutes() === 55) {
+                if (localStorage.getItem('alerta_cierre') !== d.toDateString()) {
+                    localStorage.setItem('alerta_cierre', d.toDateString());
+                    // Mostrar alerta visual
+                    const alertBox = document.createElement('div');
+                    alertBox.innerHTML = `
+                        <div style="position:fixed; top:20px; left:50%; transform:translateX(-50%); background:var(--accent-blue); color:#fff; padding:1.25rem 2.5rem; border-radius:12px; z-index:10000; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.2); display:flex; align-items:center; gap:15px; font-family:'Inter'; text-align:center; animation: dropDown 0.5s ease forwards;">
+                            <span style="font-size: 2rem;">⏰</span>
+                            <div>
+                                <h3 style="margin:0 0 5px 0; font-size:1.1rem; font-weight:800; letter-spacing:0.5px;">¡RECORDATORIO IMPORTANTE!</h3>
+                                <p style="margin:0; font-size:0.95rem;">Son las <strong>5:55 PM</strong>. Por favor, asegúrate de realizar el <strong style="color:#FFD60A;">Corte de Caja Oficial</strong>.</p>
+                            </div>
+                            <button onclick="this.parentElement.remove()" style="background:rgba(0,0,0,0.3); border:none; color:white; font-size:1.5rem; cursor:pointer; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-left:15px; transition:0.2s;">&times;</button>
+                        </div>
+                        <style>@keyframes dropDown { from{top:-100px;} to{top:20px;} }</style>
+                    `;
+                    document.body.appendChild(alertBox);
+                    
+                    // Reproducir sonido simple
+                    try {
+                        const audio = new Audio('data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU');
+                        audio.play();
+                    } catch(e) {}
+                }
+            }
+        }, 30000); // Revisar cada 30 segundos
+        <% } %>
     </script>
     <style>
         /* Ajuste fino para la vista actual */
