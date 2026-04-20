@@ -57,11 +57,11 @@ app.use((req, res, next) => {
 
 // Maintenance Mode Flag
 // Detectamos si estamos en Railway verificando sus variables de entorno inyectadas
-const MAINTENANCE_MODE = true; // Activado para Railway por solicitud del usuario
+const MAINTENANCE_MODE = process.env.MAINTENANCE_MODE === 'true';
 
 // Maintenance Middleware
 app.use((req, res, next) => {
-    if (req.path.startsWith('/public') || req.path === '/favicon.ico') {
+    if (req.path.startsWith('/public') || req.path === '/favicon.ico' || req.path === '/login' || req.path === '/logout') {
         return next();
     }
 
