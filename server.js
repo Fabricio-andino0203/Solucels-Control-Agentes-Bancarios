@@ -828,7 +828,7 @@ app.get('/transacciones', requireAuth, (req, res) => {
             if (err) return res.status(500).send("Error");
             db.all("SELECT * FROM tiendas", [], (err, tiendas) => {
                 db.all("SELECT * FROM bancos", [], (err, bancos) => {
-                    res.render('transacciones', { transacciones, tiendas, bancos, tipos, tipoFiltro: tipoFiltro || '', tiendaFiltro: tiendaFiltro || '' });
+                    res.render('transacciones', { transacciones, tiendas, bancos, tipos, tipoFiltro: tipoFiltro || '', tiendaFiltro: tiendaFiltro || '', user: req.session.user });
                 });
             });
         });
@@ -1015,8 +1015,9 @@ app.get('/operar/:tienda_id', requireAuth, requireApertura, (req, res) => {
                         const neto = txRow ? (txRow.neto_txn || 0) : 0;
                         fisicoPorBanco[b.id] = Math.max(0, inicial + neto);
                     });
-                    
-                    res.render('operar', { tienda, bancos, selectedBancoId: bancoId, fisicoPorBanco });
+                    db.all("SELECT * FROM tiendas ORDER BY nombre ASC", [], (err, todas_tiendas) => {
+                        res.render('operar', { tienda, bancos, selectedBancoId: bancoId, fisicoPorBanco, todas_tiendas: todas_tiendas || [] });
+                    });
                 });
             });
         });
@@ -1048,10 +1049,6 @@ app.post('/transaccion', requireAuth, (req, res) => {
             resEf = montoNum + comEf; resVi = -montoNum + comVi;
         } else if (tipo === 'Retiro') {
             resEf = -montoNum + comEf; resVi = montoNum + comVi;
-        } else if (tipo === 'Pago Servicio') {
-            resEf = montoNum + comEf; resVi = -montoNum + comVi;
-        } else if (tipo === 'Pago Caja Empresarial') {
-            resEf = montoNum + comEf; resVi = -montoNum + comVi;
         } else if (tipo === 'Depósito Cuenta') {
             resEf = -montoNum + comEf; resVi = montoNum + comVi;
         } else if (tipo === 'Efectivo Entregado') {
@@ -1756,30 +1753,69 @@ app.post('/operar/gasto-bancario', requireAuth, (req, res) => {
     });
 });
 
-// Traspaso de Efectivo entre bancos desde el POS
+// Traspaso de Efectivo entre bancos y tiendas
 app.post('/operar/traspaso-efectivo', requireAuth, (req, res) => {
     if (req.session.user.rol === 'Contador') return res.status(403).send('Acceso denegado');
-    const { tienda_id, banco_origen_id, banco_destino_id, monto, referencia } = req.body;
+    const { tienda_id, banco_origen_id, tienda_destino_id, banco_destino_id, monto, referencia } = req.body;
     const montoNum = parseFloat((monto || '0').replace(/,/g, ''));
     if (!montoNum || montoNum <= 0) return res.status(400).send('Monto inválido');
     if (!banco_origen_id || !banco_destino_id) return res.status(400).send('Debe seleccionar banco origen y destino');
-    if (banco_origen_id === banco_destino_id) return res.status(400).send('El banco origen y destino deben ser diferentes');
+    if (!tienda_destino_id) return res.status(400).send('Debe seleccionar una tienda destino');
+
+    const destTiendaId = (tienda_destino_id || tienda_id).toString();
+    const currTiendaId = tienda_id.toString();
+
+    if (currTiendaId === destTiendaId && banco_origen_id === banco_destino_id) {
+        return res.status(400).send('El banco origen y destino deben ser diferentes en la misma tienda');
+    }
+
     const now = getLocalTime();
     const ref = referencia || 'Traspaso de Efectivo';
 
     db.serialize(() => {
         db.run('BEGIN TRANSACTION');
-        // Salida del banco origen
+        
+        // 1. Salida de la tienda actual, banco origen
         db.run(`INSERT INTO transacciones (tienda_id, banco_id, usuario_id, tipo, monto_efectivo, monto_banco, comision_efectivo, comision_banco, referencia, fecha_hora)
                 VALUES (?, ?, ?, 'Traspaso Salida', ?, 0, 0, 0, ?, ?)`,
-            [tienda_id, banco_origen_id, req.session.user.id, -montoNum, ref + ' (Salida)', now]);
-        // Entrada al banco destino
+            [currTiendaId, banco_origen_id, req.session.user.id, -montoNum, ref + ' (Salida)', now]);
+            
+        // 2. Entrada a la tienda destino, banco destino
         db.run(`INSERT INTO transacciones (tienda_id, banco_id, usuario_id, tipo, monto_efectivo, monto_banco, comision_efectivo, comision_banco, referencia, fecha_hora)
                 VALUES (?, ?, ?, 'Traspaso Entrada', ?, 0, 0, 0, ?, ?)`,
-            [tienda_id, banco_destino_id, req.session.user.id, montoNum, ref + ' (Entrada)', now]);
-        // El efectivo total de tienda NO cambia (+monto -monto = 0)
+            [destTiendaId, banco_destino_id, req.session.user.id, montoNum, ref + ' (Entrada)', now]);
+
+        // 3. Ajustar efectivo físico global de las tiendas si son diferentes
+        if (currTiendaId !== destTiendaId) {
+            db.run(`UPDATE tiendas SET efectivo_actual = efectivo_actual - ? WHERE id = ?`, [montoNum, currTiendaId]);
+            db.run(`UPDATE tiendas SET efectivo_actual = efectivo_actual + ? WHERE id = ?`, [montoNum, destTiendaId]);
+        }
+        
         db.run('COMMIT', (err) => {
             if (err) { console.error('Error en traspaso:', err); return res.status(500).send('Error al registrar traspaso'); }
+            res.redirect('/operar/' + currTiendaId);
+        });
+    });
+});
+
+// Ingreso Extra de Efectivo (Ej. Caja de ventas)
+app.post('/operar/ingreso-extra', requireAuth, (req, res) => {
+    if (req.session.user.rol === 'Contador') return res.status(403).send('Acceso denegado');
+    const { tienda_id, banco_id, monto, referencia } = req.body;
+    const montoNum = parseFloat((monto || '0').replace(/,/g, ''));
+    if (!montoNum || montoNum <= 0) return res.status(400).send('Monto inválido');
+    if (!banco_id) return res.status(400).send('Debe seleccionar un banco para el ingreso');
+    const now = getLocalTime();
+    const ref = referencia || 'Ingreso Extra de Efectivo';
+
+    db.serialize(() => {
+        db.run('BEGIN TRANSACTION');
+        db.run(`INSERT INTO transacciones (tienda_id, banco_id, usuario_id, tipo, monto_efectivo, monto_banco, comision_efectivo, comision_banco, referencia, fecha_hora)
+                VALUES (?, ?, ?, 'Ingreso Extra', ?, 0, 0, 0, ?, ?)`,
+            [tienda_id, banco_id, req.session.user.id, montoNum, ref, now]);
+        db.run(`UPDATE tiendas SET efectivo_actual = efectivo_actual + ? WHERE id = ?`, [montoNum, tienda_id]);
+        db.run('COMMIT', (err) => {
+            if (err) { console.error('Error en ingreso extra:', err); return res.status(500).send('Error al registrar ingreso'); }
             res.redirect('/operar/' + tienda_id);
         });
     });

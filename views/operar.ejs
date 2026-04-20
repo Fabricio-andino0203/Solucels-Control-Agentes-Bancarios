@@ -84,18 +84,6 @@
                     </label>
 
                     <label class="pos-op-btn" onclick="selectOp(this)">
-                        <input type="radio" name="tipo" value="Pago Servicio">
-                        <span class="icon">🧾</span>
-                        <span class="label">PAGO SERVICIOS<br><small style="font-weight: 400; opacity: 0.7;">(+ Efec / - Banc)</small></span>
-                    </label>
-
-                    <label class="pos-op-btn" onclick="selectOp(this)">
-                        <input type="radio" name="tipo" value="Pago Caja Empresarial">
-                        <span class="icon">🏢</span>
-                        <span class="label">CAJA EMPRESARIAL<br><small style="font-weight: 400; opacity: 0.7;">(+ Efec / - Banc)</small></span>
-                    </label>
-
-                    <label class="pos-op-btn" onclick="selectOp(this)">
                         <input type="radio" name="tipo" value="Efectivo Entregado">
                         <span class="icon">💰</span>
                         <span class="label">EFECTIVO ENTREGADO<br><small style="font-weight: 400; opacity: 0.7;">(- Efec / En Auditoría)</small></span>
@@ -111,6 +99,12 @@
                     <div class="pos-op-btn pos-op-special" onclick="abrirModalTraspaso()" style="border-color: rgba(48,209,88,0.4); cursor:pointer;">
                         <span class="icon">🔄</span>
                         <span class="label">TRASPASO EFECTIVO<br><small style="font-weight: 400; opacity: 0.7;">(Reasignar por Banco)</small></span>
+                    </div>
+
+                    <!-- Botón especial: Ingreso Extra (abre modal propio) -->
+                    <div class="pos-op-btn pos-op-special" onclick="abrirModalIngreso()" style="border-color: rgba(10,132,255,0.4); cursor:pointer;">
+                        <span class="icon">💵</span>
+                        <span class="label">INGRESO EXTRA<br><small style="font-weight: 400; opacity: 0.7;">(+ Efec / Sin Banco)</small></span>
                     </div>
                 </div>
             </div>
@@ -175,12 +169,21 @@
             <div style="padding:1.5rem; background:rgba(48,209,88,0.08); border-bottom:1px solid rgba(48,209,88,0.2); display:flex; justify-content:space-between; align-items:center;">
                 <div>
                     <h2 style="color:#30D158; margin:0; font-size:1.3rem;">🔄 Traspaso de Efectivo</h2>
-                    <p style="margin:0.2rem 0 0 0; font-size:0.82rem; color:var(--text-muted);">Reasigna efectivo de un banco a otro dentro de esta tienda. El total no cambia.</p>
+                    <p style="margin:0.2rem 0 0 0; font-size:0.82rem; color:var(--text-muted);">Reasigna efectivo entre bancos, o hacia otra tienda de la red.</p>
                 </div>
                 <button onclick="cerrarModalTraspaso()" style="background:none; border:none; color:#fff; font-size:1.5rem; cursor:pointer; padding:4px;">&times;</button>
             </div>
             <form action="/operar/traspaso-efectivo" method="POST" style="padding:1.5rem;" id="formTraspasoPOS" onsubmit="return limpiarMonedaTraspaso()">
                 <input type="hidden" name="tienda_id" value="<%= tienda.id %>">
+
+                <div style="margin-bottom:1.2rem;">
+                    <label style="font-size:0.8rem; color:#30D158; text-transform:uppercase; letter-spacing:1px; display:block; margin-bottom:0.5rem; font-weight:700;">Tienda Destino 🏪</label>
+                    <select name="tienda_destino_id" class="form-control" required style="background:rgba(48,209,88,0.05); border:1px solid rgba(48,209,88,0.3); color:#fff; padding:0.8rem; border-radius:8px; width:100%;">
+                        <% todas_tiendas.forEach(t => { %>
+                            <option value="<%= t.id %>" <%= t.id === tienda.id ? 'selected' : '' %>><%= t.nombre %></option>
+                        <% }) %>
+                    </select>
+                </div>
 
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.2rem;">
                     <div>
@@ -220,6 +223,47 @@
                 <div style="display:flex; gap:1rem;">
                     <button type="button" onclick="cerrarModalTraspaso()" style="flex:1; padding:0.9rem; border-radius:8px; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.1); color:#fff; cursor:pointer; font-size:0.95rem;">Cancelar</button>
                     <button type="submit" style="flex:2; padding:0.9rem; border-radius:8px; background:linear-gradient(135deg,#30D158,#00A36C); border:none; color:#fff; font-weight:800; font-size:0.95rem; cursor:pointer; letter-spacing:0.5px; box-shadow:0 4px 15px rgba(48,209,88,0.3);">Registrar Traspaso</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========== MODAL: INGRESO EXTRA ========== -->
+    <div id="modalIngreso" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center;">
+        <div style="background:var(--bg-card); width:100%; max-width:460px; border-radius:16px; border:1px solid rgba(10,132,255,0.3); padding:0; overflow:hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.6);">
+            <div style="padding:1.5rem; background:rgba(10,132,255,0.08); border-bottom:1px solid rgba(10,132,255,0.2); display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <h2 style="color:#0A84FF; margin:0; font-size:1.3rem;">💵 Ingreso Extra</h2>
+                    <p style="margin:0.2rem 0 0 0; font-size:0.82rem; color:var(--text-muted);">Suma dinero físico a la caja ligado a un banco en específico.</p>
+                </div>
+                <button onclick="cerrarModalIngreso()" style="background:none; border:none; color:#fff; font-size:1.5rem; cursor:pointer; padding:4px;">&times;</button>
+            </div>
+            <form action="/operar/ingreso-extra" method="POST" style="padding:1.5rem;" id="formIngresoPOS" onsubmit="return limpiarMonedaIngreso()">
+                <input type="hidden" name="tienda_id" value="<%= tienda.id %>">
+
+                <div style="margin-bottom:1.2rem;">
+                    <label style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; display:block; margin-bottom:0.5rem;">Asignar a Banco</label>
+                    <select name="banco_id" class="form-control" required style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); color:#fff; padding:0.8rem; border-radius:8px; width:100%;">
+                        <option value="">-- Seleccionar Banco --</option>
+                        <% bancos.forEach(b => { %>
+                            <option value="<%= b.id %>"><%= b.nombre %></option>
+                        <% }) %>
+                    </select>
+                </div>
+
+                <div style="margin-bottom:1.2rem;">
+                    <label style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; display:block; margin-bottom:0.5rem;">Monto a Ingresar (L)</label>
+                    <input type="text" name="monto" id="ingresoMontoPOS" class="money-input form-control" placeholder="0.00" required style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); color:#fff; padding:0.8rem; border-radius:8px; width:100%; font-size:1.2rem; font-weight:800;">
+                </div>
+
+                <div style="margin-bottom:1.5rem;">
+                    <label style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; display:block; margin-bottom:0.5rem;">Referencia / Origen</label>
+                    <input type="text" name="referencia" class="form-control" placeholder="Ej: Se paso de caja para retiro" required style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); color:#fff; padding:0.8rem; border-radius:8px; width:100%;">
+                </div>
+
+                <div style="display:flex; gap:1rem;">
+                    <button type="button" onclick="cerrarModalIngreso()" style="flex:1; padding:0.9rem; border-radius:8px; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.1); color:#fff; cursor:pointer; font-size:0.95rem;">Cancelar</button>
+                    <button type="submit" style="flex:2; padding:0.9rem; border-radius:8px; background:linear-gradient(135deg,#0A84FF,#005BB5); border:none; color:#fff; font-weight:800; font-size:0.95rem; cursor:pointer; letter-spacing:0.5px; box-shadow:0 4px 15px rgba(10,132,255,0.3);">Registrar Ingreso</button>
                 </div>
             </form>
         </div>
@@ -409,16 +453,26 @@
         function cerrarModalTraspaso() {
             document.getElementById('modalTraspaso').style.display = 'none';
         }
+        function abrirModalIngreso() {
+            document.getElementById('modalIngreso').style.display = 'flex';
+        }
+        function cerrarModalIngreso() {
+            document.getElementById('modalIngreso').style.display = 'none';
+        }
 
-        // Limpiar monedas antes de enviar Gasto
+        // Limpiar monedas antes de enviar
         function limpiarMonedaGasto() {
             const inp = document.getElementById('gastoMontoPOS');
             inp.value = (inp.value || '0').replace(/,/g, '');
             return true;
         }
-        // Limpiar monedas antes de enviar Traspaso
         function limpiarMonedaTraspaso() {
             const inp = document.getElementById('traspasoMontoPOS');
+            inp.value = (inp.value || '0').replace(/,/g, '');
+            return true;
+        }
+        function limpiarMonedaIngreso() {
+            const inp = document.getElementById('ingresoMontoPOS');
             inp.value = (inp.value || '0').replace(/,/g, '');
             return true;
         }
@@ -434,6 +488,7 @@
         window.addEventListener('click', function(e) {
             if (e.target === document.getElementById('modalGasto')) cerrarModalGasto();
             if (e.target === document.getElementById('modalTraspaso')) cerrarModalTraspaso();
+            if (e.target === document.getElementById('modalIngreso')) cerrarModalIngreso();
         });
 
 
@@ -605,28 +660,36 @@
             text-align: center;
         }
 
-        /* Botones especiales del POS que abren modales propios */
+        /* Botones especiales del POS que abren modales propios — igual al pos-op-btn */
         .pos-op-special {
-            background: rgba(0,0,0,0.3);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 16px;
-            padding: 1.2rem;
+            background: #262626;
+            border: 2px solid #333;
+            border-radius: 20px;
+            padding: 1.5rem;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            gap: 0.6rem;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
             text-align: center;
-            transition: all 0.2s;
             user-select: none;
         }
         .pos-op-special:hover {
-            background: rgba(255,255,255,0.05);
+            border-color: #444;
+            background: #2d2d2d;
             transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
         }
         .pos-op-special .icon { font-size: 1.8rem; }
-        .pos-op-special .label { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.3; }
+        .pos-op-special .label { font-size: 0.9rem; font-weight: 700; color: var(--text-muted); text-align: center; line-height: 1.3; }
+
+        /* Fix para selects con fondo blanco en varios navegadores */
+        select.form-control option {
+            background-color: #1a1a1a;
+            color: #fff;
+        }
     </style>
 </body>
 </html>
