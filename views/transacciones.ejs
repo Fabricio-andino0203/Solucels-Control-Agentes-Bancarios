@@ -66,6 +66,15 @@
                 </div>
             <% } %>
             <div style="flex: 1;">
+                <span class="filter-label">Tipo de Operación</span>
+                <select class="filter-control" id="filt-tipo" style="width: 100%;" onchange="aplicarFiltroTipo(this.value)">
+                    <option value="" <%= tipoFiltro === '' ? 'selected' : '' %>>Todas las Operaciones</option>
+                    <% tipos.forEach(t => { %>
+                        <option value="<%= t %>" <%= tipoFiltro === t ? 'selected' : '' %>><%= t %></option>
+                    <% }) %>
+                </select>
+            </div>
+            <div style="flex: 1;">
                 <span class="filter-label">Banco</span>
                 <select class="filter-control" id="filt-banco" style="width: 100%;">
                     <option value="">Todos los Bancos</option>
@@ -99,8 +108,8 @@
                 <tbody>
                     <% transacciones.forEach(tx => { 
                         let cls = '';
-                        if(tx.tipo === 'Ingreso' || tx.tipo === 'Sobrante' || tx.tipo.includes('Resurtido')) cls='type-ingreso';
-                        else if(tx.tipo === 'Retiro' || tx.tipo === 'Faltante') cls='type-retiro';
+                        if(tx.tipo === 'Ingreso' || tx.tipo === 'Sobrante' || tx.tipo.includes('Resurtido') || tx.tipo.includes('Traspaso Entrada')) cls='type-ingreso';
+                        else if(tx.tipo === 'Retiro' || tx.tipo === 'Faltante' || tx.tipo.includes('Traspaso Salida')) cls='type-retiro';
                         else if(tx.tipo === 'Pago Servicio') cls='type-pago';
                         else if(tx.tipo.includes('Gasto')) cls='type-gasto';
                         else cls='type-deposito';
@@ -115,7 +124,7 @@
                         };
                         const txDate = parseLocal(tx.fecha_hora);
                     %>
-                    <tr data-date="<%= txDate.toLocaleDateString('en-CA', { timeZone: 'America/Tegucigalpa' }) %>">
+                    <tr data-date="<%= txDate.toLocaleDateString('en-CA', { timeZone: 'America/Tegucigalpa' }) %>" data-tipo="<%= tx.tipo %>">
                         <td>
                             <div style="font-weight: 600; font-size: 0.9rem;"><%= txDate.toLocaleDateString('es-HN', { timeZone: 'America/Tegucigalpa' }) %></div>
                             <div style="font-size: 0.75rem; color: var(--text-muted);"><%= txDate.toLocaleTimeString('es-HN', { timeZone: 'America/Tegucigalpa', hour: '2-digit', minute: '2-digit' }) %></div>
@@ -200,6 +209,14 @@
             filterTable(); // Aplicar el filtro inmediatamente
         });
 
+        function aplicarFiltroTipo(tipo) {
+            // El filtro de tipo es server-side: recarga la página con el param
+            const url = new URL(window.location.href);
+            if (tipo) url.searchParams.set('tipo', tipo);
+            else url.searchParams.delete('tipo');
+            window.location.href = url.toString();
+        }
+
         function filterTable() {
             const tienda = document.getElementById('filt-tienda') ? document.getElementById('filt-tienda').value.toLowerCase() : '';
             const banco = document.getElementById('filt-banco').value.toLowerCase();
@@ -207,9 +224,7 @@
 
             const rows = document.querySelectorAll('#txTable tbody tr');
             rows.forEach(row => {
-                // Leer el atributo data-date que viene directo desde EJS (no propenso a errores de split)
                 const rowDateFormatted = row.getAttribute('data-date');
-                
                 const rowTienda = row.cells[1].innerText.toLowerCase();
                 const rowBanco = row.cells[3].innerText.toLowerCase();
 

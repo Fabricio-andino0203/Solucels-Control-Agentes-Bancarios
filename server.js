@@ -793,6 +793,8 @@ app.post('/tesoreria/traslado', requireAdminOrContador, (req, res) => {
 
 // Transacciones Listado
 app.get('/transacciones', requireAuth, (req, res) => {
+    const { tipo: tipoFiltro, tienda_id: tiendaFiltro } = req.query;
+
     let query = `
         SELECT t.*, ti.nombre as tienda_nombre, b.nombre as banco_nombre, u.username 
         FROM transacciones t 
@@ -802,21 +804,37 @@ app.get('/transacciones', requireAuth, (req, res) => {
         WHERE 1=1
     `;
     let params = [];
+
     if (req.session.user.rol === 'Cajero') {
         query += " AND t.tienda_id = ?";
         params.push(req.session.user.tienda_id);
+    } else if (tiendaFiltro) {
+        query += " AND t.tienda_id = ?";
+        params.push(tiendaFiltro);
     }
+
+    if (tipoFiltro) {
+        query += " AND t.tipo = ?";
+        params.push(tipoFiltro);
+    }
+
     query += " ORDER BY t.fecha_hora DESC";
 
-    db.all(query, params, (err, transacciones) => {
-        if (err) return res.status(500).send("Error");
-        db.all("SELECT * FROM tiendas", [], (err, tiendas) => {
-            db.all("SELECT * FROM bancos", [], (err, bancos) => {
-                res.render('transacciones', { transacciones, tiendas, bancos });
+    // Obtener tipos distintos para el filtro
+    db.all("SELECT DISTINCT tipo FROM transacciones ORDER BY tipo ASC", [], (err, tiposRows) => {
+        const tipos = (tiposRows || []).map(r => r.tipo);
+
+        db.all(query, params, (err, transacciones) => {
+            if (err) return res.status(500).send("Error");
+            db.all("SELECT * FROM tiendas", [], (err, tiendas) => {
+                db.all("SELECT * FROM bancos", [], (err, bancos) => {
+                    res.render('transacciones', { transacciones, tiendas, bancos, tipos, tipoFiltro: tipoFiltro || '', tiendaFiltro: tiendaFiltro || '' });
+                });
             });
         });
     });
 });
+
 
 // Operar View
 // Usuarios View
@@ -1710,6 +1728,59 @@ app.post('/tesoreria/deuda/eliminar/:id', requireAdminOrContador, (req, res) => 
 
             db.run("DELETE FROM depositos_adelantados WHERE id = ?", [id]);
             db.run('COMMIT', () => res.redirect('/tesoreria'));
+        });
+    });
+});
+
+// ==========================================
+// RUTAS EXTRA DEL POS (Cajero / Admin)
+// ==========================================
+
+// Gasto Bancario desde el POS (idéntico al de Tesorería)
+app.post('/operar/gasto-bancario', requireAuth, (req, res) => {
+    if (req.session.user.rol === 'Contador') return res.status(403).send('Acceso denegado');
+    const { tienda_id, banco_id, monto, categoria, descripcion } = req.body;
+    const montoNum = parseFloat((monto || '0').replace(/,/g, ''));
+    if (!montoNum || montoNum <= 0) return res.status(400).send('Monto inválido');
+    const now = getLocalTime();
+    const descFinal = descripcion ? `${categoria} - ${descripcion}` : categoria;
+
+    db.serialize(() => {
+        db.run('BEGIN TRANSACTION');
+        db.run("INSERT INTO tesoreria_log (tipo, monto, referencia, fecha_hora, banco_id) VALUES ('Gasto Bancario', ?, ?, ?, ?)",
+            [montoNum, descFinal, now, banco_id || null]);
+        if (banco_id) {
+            db.run("UPDATE saldos_bancarios SET saldo = saldo - ?, actualizado_en = ? WHERE banco_id = ?", [montoNum, now, banco_id]);
+        }
+        db.run('COMMIT', () => res.redirect('/operar/' + tienda_id));
+    });
+});
+
+// Traspaso de Efectivo entre bancos desde el POS
+app.post('/operar/traspaso-efectivo', requireAuth, (req, res) => {
+    if (req.session.user.rol === 'Contador') return res.status(403).send('Acceso denegado');
+    const { tienda_id, banco_origen_id, banco_destino_id, monto, referencia } = req.body;
+    const montoNum = parseFloat((monto || '0').replace(/,/g, ''));
+    if (!montoNum || montoNum <= 0) return res.status(400).send('Monto inválido');
+    if (!banco_origen_id || !banco_destino_id) return res.status(400).send('Debe seleccionar banco origen y destino');
+    if (banco_origen_id === banco_destino_id) return res.status(400).send('El banco origen y destino deben ser diferentes');
+    const now = getLocalTime();
+    const ref = referencia || 'Traspaso de Efectivo';
+
+    db.serialize(() => {
+        db.run('BEGIN TRANSACTION');
+        // Salida del banco origen
+        db.run(`INSERT INTO transacciones (tienda_id, banco_id, usuario_id, tipo, monto_efectivo, monto_banco, comision_efectivo, comision_banco, referencia, fecha_hora)
+                VALUES (?, ?, ?, 'Traspaso Salida', ?, 0, 0, 0, ?, ?)`,
+            [tienda_id, banco_origen_id, req.session.user.id, -montoNum, ref + ' (Salida)', now]);
+        // Entrada al banco destino
+        db.run(`INSERT INTO transacciones (tienda_id, banco_id, usuario_id, tipo, monto_efectivo, monto_banco, comision_efectivo, comision_banco, referencia, fecha_hora)
+                VALUES (?, ?, ?, 'Traspaso Entrada', ?, 0, 0, 0, ?, ?)`,
+            [tienda_id, banco_destino_id, req.session.user.id, montoNum, ref + ' (Entrada)', now]);
+        // El efectivo total de tienda NO cambia (+monto -monto = 0)
+        db.run('COMMIT', (err) => {
+            if (err) { console.error('Error en traspaso:', err); return res.status(500).send('Error al registrar traspaso'); }
+            res.redirect('/operar/' + tienda_id);
         });
     });
 });

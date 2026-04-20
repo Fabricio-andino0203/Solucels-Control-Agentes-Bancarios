@@ -100,10 +100,130 @@
                         <span class="icon">💰</span>
                         <span class="label">EFECTIVO ENTREGADO<br><small style="font-weight: 400; opacity: 0.7;">(- Efec / En Auditoría)</small></span>
                     </label>
+
+                    <!-- Botón especial: Gasto Bancario (abre modal propio) -->
+                    <div class="pos-op-btn pos-op-special" onclick="abrirModalGasto()" style="border-color: rgba(255,159,10,0.4); cursor:pointer;">
+                        <span class="icon">💸</span>
+                        <span class="label">GASTO BANCARIO<br><small style="font-weight: 400; opacity: 0.7;">(- Saldo Virtual)</small></span>
+                    </div>
+
+                    <!-- Botón especial: Traspaso Efectivo (abre modal propio) -->
+                    <div class="pos-op-btn pos-op-special" onclick="abrirModalTraspaso()" style="border-color: rgba(48,209,88,0.4); cursor:pointer;">
+                        <span class="icon">🔄</span>
+                        <span class="label">TRASPASO EFECTIVO<br><small style="font-weight: 400; opacity: 0.7;">(Reasignar por Banco)</small></span>
+                    </div>
                 </div>
             </div>
         </form>
     </main>
+
+    <!-- ========== MODAL: GASTO BANCARIO ========== -->
+    <div id="modalGasto" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center;">
+        <div style="background:var(--bg-card); width:100%; max-width:460px; border-radius:16px; border:1px solid rgba(255,159,10,0.3); padding:0; overflow:hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.6);">
+            <div style="padding:1.5rem; background:rgba(255,159,10,0.08); border-bottom:1px solid rgba(255,159,10,0.2); display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <h2 style="color:#FF9F0A; margin:0; font-size:1.3rem;">💸 Gasto Bancario</h2>
+                    <p style="margin:0.2rem 0 0 0; font-size:0.82rem; color:var(--text-muted);">Registra un gasto y descuenta del saldo virtual del banco.</p>
+                </div>
+                <button onclick="cerrarModalGasto()" style="background:none; border:none; color:#fff; font-size:1.5rem; cursor:pointer; padding:4px;">&times;</button>
+            </div>
+            <form action="/operar/gasto-bancario" method="POST" style="padding:1.5rem;" id="formGastoPOS" onsubmit="return limpiarMonedaGasto()">
+                <input type="hidden" name="tienda_id" value="<%= tienda.id %>">
+
+                <div style="margin-bottom:1.2rem;">
+                    <label style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; display:block; margin-bottom:0.5rem;">Banco</label>
+                    <select name="banco_id" class="form-control" required style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); color:#fff; padding:0.8rem; border-radius:8px; width:100%;">
+                        <option value="">-- Seleccionar Banco --</option>
+                        <% bancos.forEach(b => { %>
+                            <option value="<%= b.id %>"><%= b.nombre %></option>
+                        <% }) %>
+                    </select>
+                </div>
+
+                <div style="margin-bottom:1.2rem;">
+                    <label style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; display:block; margin-bottom:0.5rem;">Monto (L)</label>
+                    <input type="text" name="monto" id="gastoMontoPOS" class="money-input form-control" placeholder="0.00" required style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); color:#fff; padding:0.8rem; border-radius:8px; width:100%; font-size:1.2rem; font-weight:800;">
+                </div>
+
+                <div style="margin-bottom:1.2rem;">
+                    <label style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; display:block; margin-bottom:0.5rem;">Categoría</label>
+                    <select name="categoria" class="form-control" required style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); color:#fff; padding:0.8rem; border-radius:8px; width:100%;">
+                        <option value="Servicios">Servicios</option>
+                        <option value="Suministros">Suministros</option>
+                        <option value="Transporte">Transporte</option>
+                        <option value="Personal">Personal</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+
+                <div style="margin-bottom:1.5rem;">
+                    <label style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; display:block; margin-bottom:0.5rem;">Descripción (Opcional)</label>
+                    <input type="text" name="descripcion" class="form-control" placeholder="Ej: Pago de servicio eléctrico..." style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); color:#fff; padding:0.8rem; border-radius:8px; width:100%;">
+                </div>
+
+                <div style="display:flex; gap:1rem;">
+                    <button type="button" onclick="cerrarModalGasto()" style="flex:1; padding:0.9rem; border-radius:8px; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.1); color:#fff; cursor:pointer; font-size:0.95rem;">Cancelar</button>
+                    <button type="submit" style="flex:2; padding:0.9rem; border-radius:8px; background:linear-gradient(135deg,#FF9F0A,#FF6B00); border:none; color:#fff; font-weight:800; font-size:0.95rem; cursor:pointer; letter-spacing:0.5px; box-shadow:0 4px 15px rgba(255,159,10,0.3);">Registrar Gasto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========== MODAL: TRASPASO EFECTIVO ========== -->
+    <div id="modalTraspaso" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center;">
+        <div style="background:var(--bg-card); width:100%; max-width:480px; border-radius:16px; border:1px solid rgba(48,209,88,0.3); padding:0; overflow:hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.6);">
+            <div style="padding:1.5rem; background:rgba(48,209,88,0.08); border-bottom:1px solid rgba(48,209,88,0.2); display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <h2 style="color:#30D158; margin:0; font-size:1.3rem;">🔄 Traspaso de Efectivo</h2>
+                    <p style="margin:0.2rem 0 0 0; font-size:0.82rem; color:var(--text-muted);">Reasigna efectivo de un banco a otro dentro de esta tienda. El total no cambia.</p>
+                </div>
+                <button onclick="cerrarModalTraspaso()" style="background:none; border:none; color:#fff; font-size:1.5rem; cursor:pointer; padding:4px;">&times;</button>
+            </div>
+            <form action="/operar/traspaso-efectivo" method="POST" style="padding:1.5rem;" id="formTraspasoPOS" onsubmit="return limpiarMonedaTraspaso()">
+                <input type="hidden" name="tienda_id" value="<%= tienda.id %>">
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.2rem;">
+                    <div>
+                        <label style="font-size:0.8rem; color:#FF453A; text-transform:uppercase; letter-spacing:1px; display:block; margin-bottom:0.5rem; font-weight:700;">Banco Origen 📤</label>
+                        <select name="banco_origen_id" id="traspOrigenSel" class="form-control" required style="background:rgba(255,69,58,0.05); border:1px solid rgba(255,69,58,0.3); color:#fff; padding:0.8rem; border-radius:8px; width:100%;">
+                            <option value="">-- Seleccionar --</option>
+                            <% bancos.forEach(b => { %>
+                                <option value="<%= b.id %>" data-fisico="<%= (fisicoPorBanco[b.id] || 0).toFixed(2) %>"><%= b.nombre %> (L <%= (fisicoPorBanco[b.id] || 0).toLocaleString('es-HN', {minimumFractionDigits:2}) %>)</option>
+                            <% }) %>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:0.8rem; color:#30D158; text-transform:uppercase; letter-spacing:1px; display:block; margin-bottom:0.5rem; font-weight:700;">Banco Destino 📥</label>
+                        <select name="banco_destino_id" class="form-control" required style="background:rgba(48,209,88,0.05); border:1px solid rgba(48,209,88,0.3); color:#fff; padding:0.8rem; border-radius:8px; width:100%;">
+                            <option value="">-- Seleccionar --</option>
+                            <% bancos.forEach(b => { %>
+                                <option value="<%= b.id %>"><%= b.nombre %></option>
+                            <% }) %>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.07); border-radius:10px; padding:1rem; margin-bottom:1.2rem; font-size:0.85rem; color:var(--text-muted);">
+                    Efectivo disponible en banco origen: <strong id="traspOrigenDisponible" style="color:#fff;">L 0.00</strong>
+                </div>
+
+                <div style="margin-bottom:1.2rem;">
+                    <label style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; display:block; margin-bottom:0.5rem;">Monto a Traspasar (L)</label>
+                    <input type="text" name="monto" id="traspasoMontoPOS" class="money-input form-control" placeholder="0.00" required style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); color:#fff; padding:0.8rem; border-radius:8px; width:100%; font-size:1.2rem; font-weight:800;">
+                </div>
+
+                <div style="margin-bottom:1.5rem;">
+                    <label style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; display:block; margin-bottom:0.5rem;">Referencia (Opcional)</label>
+                    <input type="text" name="referencia" class="form-control" placeholder="Ej: Traspaso para pago de nómina..." style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); color:#fff; padding:0.8rem; border-radius:8px; width:100%;">
+                </div>
+
+                <div style="display:flex; gap:1rem;">
+                    <button type="button" onclick="cerrarModalTraspaso()" style="flex:1; padding:0.9rem; border-radius:8px; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.1); color:#fff; cursor:pointer; font-size:0.95rem;">Cancelar</button>
+                    <button type="submit" style="flex:2; padding:0.9rem; border-radius:8px; background:linear-gradient(135deg,#30D158,#00A36C); border:none; color:#fff; font-weight:800; font-size:0.95rem; cursor:pointer; letter-spacing:0.5px; box-shadow:0 4px 15px rgba(48,209,88,0.3);">Registrar Traspaso</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- MODAL DE CORTE DE CAJA -->
     <% if (user && user.rol === 'Cajero') { %>
@@ -276,6 +396,47 @@
             });
         });
 
+        // ===== FUNCIONES MODALES NUEVOS =====
+        function abrirModalGasto() {
+            document.getElementById('modalGasto').style.display = 'flex';
+        }
+        function cerrarModalGasto() {
+            document.getElementById('modalGasto').style.display = 'none';
+        }
+        function abrirModalTraspaso() {
+            document.getElementById('modalTraspaso').style.display = 'flex';
+        }
+        function cerrarModalTraspaso() {
+            document.getElementById('modalTraspaso').style.display = 'none';
+        }
+
+        // Limpiar monedas antes de enviar Gasto
+        function limpiarMonedaGasto() {
+            const inp = document.getElementById('gastoMontoPOS');
+            inp.value = (inp.value || '0').replace(/,/g, '');
+            return true;
+        }
+        // Limpiar monedas antes de enviar Traspaso
+        function limpiarMonedaTraspaso() {
+            const inp = document.getElementById('traspasoMontoPOS');
+            inp.value = (inp.value || '0').replace(/,/g, '');
+            return true;
+        }
+
+        // Mostrar disponible del banco origen al cambiar el select de traspaso
+        document.getElementById('traspOrigenSel').addEventListener('change', function() {
+            const opt = this.options[this.selectedIndex];
+            const fisico = parseFloat(opt.getAttribute('data-fisico') || '0');
+            document.getElementById('traspOrigenDisponible').textContent = 'L ' + fisico.toLocaleString('es-HN', { minimumFractionDigits: 2 });
+        });
+
+        // Cerrar modales al hacer click fuera
+        window.addEventListener('click', function(e) {
+            if (e.target === document.getElementById('modalGasto')) cerrarModalGasto();
+            if (e.target === document.getElementById('modalTraspaso')) cerrarModalTraspaso();
+        });
+
+
         // LOGICA DE CIERRE DE CAJA
         const saldoCajaEsperado = <%= tienda ? Math.abs(tienda.efectivo_actual) : 0 %>;
         function getModalVal(el) { 
@@ -443,6 +604,29 @@
             margin-bottom: 2rem;
             text-align: center;
         }
+
+        /* Botones especiales del POS que abren modales propios */
+        .pos-op-special {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 1.2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+            text-align: center;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .pos-op-special:hover {
+            background: rgba(255,255,255,0.05);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        .pos-op-special .icon { font-size: 1.8rem; }
+        .pos-op-special .label { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1.3; }
     </style>
 </body>
 </html>
