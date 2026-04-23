@@ -417,17 +417,12 @@ app.get('/', requireAuth, (req, res) => {
                                                 };
                                             });
 
-                                            const tesoreriaOtros = (rowsRemesasPendientes || [])
-                                                .filter(r => r.banco_id === null)
-                                                .reduce((acc, curr) => acc + curr.total_remesa, 0);
-
                                             res.render('dashboard', { 
                                                 stores: tiendas.map(t => ({ id: t.id, name: t.nombre, cash: t.efectivo_actual })), 
                                                 bancos: saldosBancos, 
                                                 user: req.session.user,
                                                 auditData: auditMatrix,
                                                 globalBancario,
-                                                tesoreriaOtros,
                                                 enTransito,
                                                 filterFecha: fecha || null,
                                                 referenciasTiendas
@@ -555,7 +550,7 @@ app.get('/tesoreria', requireAdminOrContador, (req, res) => {
             db.all(sqlRemesas, [], (err, remesasPendientes) => {
                 const sqlHistorial = `
                     SELECT 'Remesa Recibida' as tipo_trans, r.id as log_id, r.monto, r.fecha_recepcion as fecha, 
-                           t.nombre || ' (📦 ' || COALESCE(b.nombre, 'Otros/Suelto') || ')' as origen, 
+                           t.nombre || ' (📦 ' || COALESCE(b.nombre, 'Fondo General') || ')' as origen, 
                            'Efectivo' as via, r.observaciones as ref, 'remesa' as source_table
                     FROM remesas r 
                     JOIN tiendas t ON r.tienda_id = t.id 
@@ -612,14 +607,16 @@ app.get('/tesoreria', requireAdminOrContador, (req, res) => {
                                         return { ...s, monto: Number(s.flujo || 0) || 0 };
                                     });
                                     if (flowOtros !== 0) {
-                                        flujoPorBanco.push({ id: 'Otros', nombre: 'Otros', color: '#888', monto: flowOtros });
+                                        flujoPorBanco.push({ id: 'Otros', nombre: 'Fondo General', color: '#888', monto: flowOtros });
                                     }
 
                                     const saldosTotales = safeSaldosFlujo.map(s => {
                                         const base = Number(baseSaldos[String(s.id)] || 0) || 0;
                                         return { id: s.id, nombre: s.nombre, saldo: base + (Number(s.flujo || 0) || 0) };
                                     });
-                                    saldosTotales.push({ id: 'Otros', nombre: 'Otros', saldo: baseOtros + flowOtros });
+                                    if (baseOtros + flowOtros !== 0) {
+                                        saldosTotales.push({ id: 'Otros', nombre: 'Fondo General', saldo: baseOtros + flowOtros });
+                                    }
 
                                     const saldoTesoreriaTotalFlujo = flujoPorBanco.reduce((acc, s) => acc + s.monto, 0);
                                     const saldoTesoreriaTotalReal = saldosTotales.reduce((acc, s) => acc + s.saldo, 0);
@@ -1028,7 +1025,7 @@ app.post('/transaccion', requireAuth, (req, res) => {
     if (req.session.user.rol === 'Contador') {
         return res.status(403).send("Acceso denegado: El rol Contador es solo lectura.");
     }
-    const { tienda_id, banco_id, tipo, monto, referencia } = req.body;
+    const { tienda_id, banco_id, tipo, monto, referencia, es_adelantado } = req.body;
     const montoNum = parseFloat(monto);
     
     if (isNaN(montoNum) || montoNum <= 0) {
@@ -1046,7 +1043,13 @@ app.post('/transaccion', requireAuth, (req, res) => {
         let resEf = 0, resVi = 0;
 
         if (tipo === 'Depósito') {
-            resEf = montoNum + comEf; resVi = -montoNum + comVi;
+            if (es_adelantado === 'true') {
+                resEf = comEf; // Solo la comisión entra al físico, el monto es deuda
+                resVi = -montoNum + comVi;
+            } else {
+                resEf = montoNum + comEf; 
+                resVi = -montoNum + comVi;
+            }
         } else if (tipo === 'Retiro') {
             resEf = -montoNum + comEf; resVi = montoNum + comVi;
         } else if (tipo === 'Depósito Cuenta') {
@@ -1078,11 +1081,21 @@ app.post('/transaccion', requireAuth, (req, res) => {
 
                     const finishTransaction = () => {
                         if (tipo === 'Efectivo Entregado') {
-                            db.run(`INSERT INTO remesas (tienda_id, monto, fecha_envio, estado) VALUES (?, ?, ?, 'Pendiente')`, 
-                                [tienda_id, montoNum, now], (err) => {
+                            db.run(`INSERT INTO remesas (tienda_id, monto, fecha_envio, estado, banco_id, observaciones) VALUES (?, ?, ?, 'Pendiente', ?, ?)`, 
+                                [tienda_id, montoNum, now, banco_id || null, 'Entrega desde POS'], (err) => {
                                     if (err) {
                                         console.error("Error al crear remesa:", err);
                                         return db.run('ROLLBACK', () => res.status(500).send("Error al registrar entrega: " + err.message));
+                                    }
+                                    db.run('COMMIT', (err) => res.redirect('/operar/' + tienda_id));
+                                });
+                        } else if (tipo === 'Depósito' && es_adelantado === 'true') {
+                            const obs = `Depósito Adelantado de ${tienda_id}: ${referencia || ''}`;
+                            db.run(`INSERT INTO depositos_adelantados (banco_id, monto, referencia, fecha_hora, estado) VALUES (?, ?, ?, ?, 'Pendiente')`, 
+                                [banco_id, montoNum, obs, now], (err) => {
+                                    if (err) {
+                                        console.error("Error al crear deuda adelantada:", err);
+                                        return db.run('ROLLBACK', () => res.status(500).send("Error al registrar deuda: " + err.message));
                                     }
                                     db.run('COMMIT', (err) => res.redirect('/operar/' + tienda_id));
                                 });
@@ -1335,12 +1348,12 @@ app.post('/cierres/nuevo', requireAuth, (req, res) => {
             }
 
             // Si hay entrega al contador, crear remesas por banco
-            for (let bankIdOrName in entregas) {
-                const monto = entregas[bankIdOrName];
+            for (let bankIdKey in entregas) {
+                const monto = entregas[bankIdKey];
                 if (monto > 0) {
-                    // Si bankIdOrName es un ID numérico (de bancos reales) o "Otros"
-                    const bId = parseInt(bankIdOrName) || null; 
-                    const obsEnvio = bId ? `Entrega de banco` : `Entrega Otros`;
+                    // Asegurarnos de que bId sea un número o null si es "Otros"
+                    const bId = (bankIdKey === 'Otros') ? null : parseInt(bankIdKey);
+                    const obsEnvio = bId ? `Entrega de banco` : `Entrega Fondo General`;
                     db.run(`INSERT INTO remesas (tienda_id, monto, fecha_envio, estado, observaciones, banco_id) VALUES (?, ?, ?, 'Pendiente', ?, ?)`,
                         [req.session.user.tienda_id, monto, now, obsEnvio, bId]);
                 }
@@ -1641,8 +1654,19 @@ app.post('/tesoreria/remesa/eliminar/:id', requireAdminOrContador, (req, res) =>
         db.serialize(() => {
             db.run('BEGIN TRANSACTION');
             
-            if (revertir === 'true') {
-                db.run("UPDATE tiendas SET efectivo_actual = efectivo_actual + ? WHERE id = ?", [rem.monto, rem.tienda_id]);
+            if (revertir === 'true' || revertir === true) {
+                console.log(`Revirtiendo remesa ${id}: L ${rem.monto} a tienda ${rem.tienda_id}`);
+                // Devolver efectivo a la tienda
+                db.run("UPDATE tiendas SET efectivo_actual = efectivo_actual + ? WHERE id = ?", [rem.monto, rem.tienda_id], (err) => {
+                    if (err) console.error("Error al revertir efectivo a tienda:", err);
+                });
+
+                // Si la remesa vino desde el POS (Efectivo Entregado), eliminar la transacción asociada
+                // Usamos un margen de error pequeño para el monto y buscamos por tienda y tipo
+                db.run("DELETE FROM transacciones WHERE tienda_id = ? AND tipo = 'Efectivo Entregado' AND ABS(monto_efectivo + ?) < 0.01 AND (fecha_hora LIKE ? OR fecha_hora LIKE ?)", 
+                    [rem.tienda_id, rem.monto, rem.fecha_envio.substring(0, 16) + '%', rem.fecha_envio.substring(0, 13) + '%'], (err) => {
+                        if (err) console.error("Error al intentar borrar transacción asociada a remesa:", err);
+                    });
             }
 
             db.run("DELETE FROM remesas WHERE id = ?", [id]);

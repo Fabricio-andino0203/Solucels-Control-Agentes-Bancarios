@@ -1,0 +1,92 @@
+<!-- Recepciones Module -->
+<div id="module-recepciones" class="tesoreria-module" style="display: none;">
+    <div class="module-header">
+        <h2>📥 Recepción de Efectivo</h2>
+        <p>Confirme la llegada de remesas enviadas desde las tiendas.</p>
+    </div>
+
+    <div class="card-premium">
+        <div class="card-header-premium">
+            <span class="icon">📦</span>
+            <span class="title">Remesas por Recibir</span>
+        </div>
+        <div class="table-responsive">
+            <table class="audit-table">
+                <thead>
+                    <tr>
+                        <th>Origen</th>
+                        <th>Banco Destino</th>
+                        <th>Monto</th>
+                        <th>Fecha Envío</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% remesasPendientes.forEach(function(r) { %>
+                        <tr>
+                            <td><strong><%= r.tienda_nombre %></strong></td>
+                            <td><span class="badge-banco"><%= r.banco_nombre || 'Fondo General' %></span></td>
+                            <td class="amount-bold">L <%= r.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
+                            <td><span class="text-muted"><%= r.fecha_envio %></span></td>
+                            <td>
+                                <div class="action-buttons">
+                                    <form action="/tesoreria/recibir/<%= r.id %>" method="POST" style="display:inline;">
+                                        <button type="submit" class="btn btn-success-premium">Confirmar</button>
+                                    </form>
+                                    <form action="/tesoreria/remesa/eliminar/<%= r.id %>" method="POST" onsubmit="return confirm('¿Eliminar esta recepción pendiente?')" style="display:inline;">
+                                        <button type="submit" name="revertir" value="true" class="btn btn-danger-outline" title="Revertir a tienda">Revertir</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    <% }); %>
+                    <% if(remesasPendientes.length === 0) { %>
+                        <tr><td colspan="5" class="empty-table">No hay efectivo por recibir de tiendas.</td></tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Sección de Deudas / Depósitos Adelantados -->
+    <div class="card-premium" style="margin-top: 2rem;">
+        <div class="card-header-premium">
+            <span class="icon">💸</span>
+            <span class="title">Depósitos por Pagar (Deudas)</span>
+        </div>
+        <div class="table-responsive">
+            <table class="audit-table">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Banco</th>
+                        <th>Monto</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% deudas.forEach(function(d) { %>
+                        <tr>
+                            <td><%= d.fecha_hora %></td>
+                            <td><span class="badge-banco"><%= d.banco_nombre %></span></td>
+                            <td class="amount-bold text-danger">L <%= d.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
+                            <td>
+                                <div class="action-buttons">
+                                    <form action="/tesoreria/pagar-adelantado/<%= d.id %>" method="POST" style="display:inline;">
+                                        <button type="submit" class="btn btn-primary-premium">Pagar</button>
+                                    </form>
+                                    <form action="/tesoreria/deuda/eliminar/<%= d.id %>" method="POST" onsubmit="return confirm('¿Eliminar esta deuda?')" style="display:inline;">
+                                        <button type="submit" name="revertir" value="true" class="btn btn-danger-outline">Revertir</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    <% }); %>
+                    <% if(deudas.length === 0) { %>
+                        <tr><td colspan="4" class="empty-table">No hay deudas por depósitos adelantados.</td></tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

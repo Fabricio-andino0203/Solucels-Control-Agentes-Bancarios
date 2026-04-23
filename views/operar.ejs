@@ -66,6 +66,20 @@
                         </div>
                     </div>
 
+                    <!-- Botón Depósito Adelantado -->
+                    <div class="pos-advance-deposit-container" style="margin-top: 1.5rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h4 style="margin: 0; color: #fff; font-size: 0.9rem; font-weight: 800; letter-spacing: 0.5px;">¿ES DEPÓSITO ADELANTADO?</h4>
+                                <p style="margin: 4px 0 0 0; font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase;">Quedará como deuda pendiente hasta que el efectivo sea entregado.</p>
+                            </div>
+                            <label class="switch-premium">
+                                <input type="checkbox" name="es_adelantado" id="esAdelantado" value="true">
+                                <span class="slider-premium"></span>
+                            </label>
+                        </div>
+                    </div>
+
                     <button type="submit" class="btn btn-primary btn-pos-submit" style="width: 100%; margin-top: 1rem;">Procesar Operación</button>
                 </div>
 
@@ -303,18 +317,7 @@
                             <input type="text" name="banco_<%= b.id %>" data-banco-nombre="<%= b.nombre %>" data-banco-color="<%= b.color %>" class="form-control money-input close-declare" style="width:130px; background:rgba(0,0,0,0.3); color:#fff; border:1px solid rgba(255,255,255,0.1);" placeholder="L 0.00">
                         </div>
                         <% }); %>
-                        <% 
-                        let totalGeneralEsperado = tienda ? Math.abs(tienda.efectivo_actual) : 0;
-                        let esperadoOtros = totalGeneralEsperado - totalEsperadoBancos;
-                        if (esperadoOtros < 0) esperadoOtros = 0; 
-                        %>
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.75rem;">
-                            <div style="display:flex; flex-direction:column;">
-                                <span style="color:#888; font-size:0.95rem; font-weight:600;">Otros / Suelto</span>
-                                <span style="font-size:0.75rem; color:var(--text-muted);">Esperado: <strong>L <%= esperadoOtros.toLocaleString('es-HN', {minimumFractionDigits:2}) %></strong></span>
-                            </div>
-                            <input type="text" name="banco_Otros" data-banco-nombre="Otros / Suelto" data-banco-color="#888" class="form-control money-input close-declare" style="width:130px; background:rgba(0,0,0,0.3); color:#fff; border:1px solid rgba(255,255,255,0.1);" placeholder="L 0.00">
-                        </div>
+
                     </div>
 
                     <!-- PASO 2 -->
@@ -327,10 +330,7 @@
                             <input type="text" name="entrega_banco_<%= b.id %>" class="form-control money-input close-delivery" style="width:130px; background:rgba(10,132,255,0.1); color:#fff; border:1px solid rgba(10,132,255,0.3);" placeholder="L 0.00">
                         </div>
                         <% }); %>
-                        <div style="display:flex; justify-content:space-between; align-items:center; height: 42px; margin-bottom:0.75rem;">
-                            <span style="color:#888; font-size:0.95rem; font-weight:600;">Otros / Suelto</span>
-                            <input type="text" name="entrega_banco_Otros" class="form-control money-input close-delivery" style="width:130px; background:rgba(10,132,255,0.1); color:#fff; border:1px solid rgba(10,132,255,0.3);" placeholder="L 0.00">
-                        </div>
+
                     </div>
                 </div>
 
@@ -611,6 +611,34 @@
         <% } %>
     </script>
     <style>
+        /* Switch Premium Styles */
+        .switch-premium {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+        }
+        .switch-premium input { opacity: 0; width: 0; height: 0; }
+        .slider-premium {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #333;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        .slider-premium:before {
+            position: absolute;
+            content: "";
+            height: 18px; width: 18px;
+            left: 4px; bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider-premium { background-color: var(--accent-blue); }
+        input:checked + .slider-premium:before { transform: translateX(24px); }
+
         /* Ajuste fino para la vista actual */
         .pos-layout .main-content { overflow-y: hidden; }
 

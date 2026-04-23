@@ -1,0 +1,213 @@
+/* Premium Treasury Styles */
+:root {
+    --primary-gradient: linear-gradient(135deg, #0A84FF 0%, #0070E0 100%);
+    --success-gradient: linear-gradient(135deg, #34C759 0%, #28A745 100%);
+    --danger-gradient: linear-gradient(135deg, #FF3B30 0%, #D70015 100%);
+    --warning-gradient: linear-gradient(135deg, #FF9F0A 0%, #FF8000 100%);
+    --purple-gradient: linear-gradient(135deg, #AF52DE 0%, #8944AB 100%);
+    --card-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    --glass-bg: rgba(255, 255, 255, 0.03);
+    --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+.tesoreria-container {
+    display: flex;
+    gap: 2rem;
+    align-items: flex-start;
+}
+
+/* Sidebar Nav */
+.tesoreria-nav {
+    width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    position: sticky;
+    top: 2.5rem;
+}
+
+.nav-module-btn {
+    background: var(--bg-card);
+    border: 1px solid var(--glass-border);
+    color: var(--text-muted);
+    padding: 1rem;
+    border-radius: 12px;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 600;
+}
+
+.nav-module-btn:hover {
+    background: var(--bg-card-hover);
+    color: #fff;
+    transform: translateX(5px);
+}
+
+.nav-module-btn.active {
+    background: var(--primary-gradient);
+    color: #fff;
+    border: none;
+    box-shadow: 0 4px 15px rgba(10, 132, 255, 0.4);
+}
+
+.tesoreria-content {
+    flex: 1;
+}
+
+/* Cards Premium */
+.card-premium {
+    background: var(--bg-card);
+    border-radius: 20px;
+    padding: 1.5rem;
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--card-shadow);
+    margin-bottom: 2rem;
+    transition: transform 0.3s ease;
+}
+
+.card-header-premium {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid var(--glass-border);
+    padding-bottom: 1rem;
+}
+
+.card-header-premium .icon { font-size: 1.5rem; }
+.card-header-premium .title { font-size: 1.1rem; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 1px; }
+
+/* Dashboard Specific */
+.stats-grid-premium {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.flow-card { grid-column: span 2; }
+@media (max-width: 900px) { .flow-card { grid-column: span 1; } }
+
+.flow-list, .balance-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.flow-item, .balance-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.8rem 1rem;
+    background: var(--glass-bg);
+    border-radius: 12px;
+    border-left: 4px solid var(--bank-color, #888);
+}
+
+.flow-item .amount, .balance-item .amount { font-weight: 800; font-size: 1.1rem; }
+
+.flow-total {
+    margin-top: 1.5rem;
+    padding: 1.2rem;
+    border-radius: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.bg-success-light { background: rgba(52, 199, 89, 0.1); border: 1px solid rgba(52, 199, 89, 0.2); color: #34C759; }
+.bg-danger-light { background: rgba(255, 59, 48, 0.1); border: 1px solid rgba(255, 59, 48, 0.2); color: #FF3B30; }
+
+.total-val { font-size: 1.5rem; font-weight: 900; }
+
+.status-card .status-val { font-size: 2rem; font-weight: 900; margin: 0.5rem 0; }
+.status-card.warning .status-val { color: #FF9F0A; }
+.status-card.danger .status-val { color: #FF3B30; }
+.status-desc { font-size: 0.85rem; color: var(--text-muted); }
+
+/* Modules UI */
+.module-header { margin-bottom: 2rem; }
+.module-header h2 { font-size: 2rem; font-weight: 800; margin-bottom: 0.5rem; }
+.module-header p { color: var(--text-muted); }
+
+.module-header-split {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 2.5rem;
+}
+
+/* Forms Premium */
+.premium-form { display: flex; flex-direction: column; gap: 1.5rem; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+@media (max-width: 600px) { .form-row { grid-template-columns: 1fr; } }
+
+.form-group label { display: block; font-size: 0.85rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.6rem; text-transform: uppercase; }
+.money-input-premium { font-size: 1.5rem !important; font-weight: 800; color: var(--accent-blue) !important; text-align: right; }
+
+/* Buttons Premium */
+.btn { border: none; border-radius: 12px; padding: 1rem 1.5rem; font-weight: 700; cursor: pointer; transition: all 0.3s ease; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+.btn-primary-premium { background: var(--primary-gradient); color: #fff; }
+.btn-success-premium { background: var(--success-gradient); color: #fff; }
+.btn-danger-outline { background: transparent; border: 1px solid var(--danger); color: var(--danger); }
+.btn-danger-outline:hover { background: var(--danger); color: #fff; }
+
+.btn-primary-full { background: var(--primary-gradient); color: #fff; width: 100%; }
+.btn-danger-full { background: var(--danger-gradient); color: #fff; width: 100%; }
+.btn-purple-full { background: var(--purple-gradient); color: #fff; width: 100%; }
+.btn-warning-full { background: var(--warning-gradient); color: #fff; width: 100%; }
+.btn-blue-full { background: var(--primary-gradient); color: #fff; width: 100%; }
+.btn-outline-blue-full { background: transparent; border: 2px solid var(--accent-blue); color: var(--accent-blue); width: 100%; }
+.btn-outline-blue-full:hover { background: var(--accent-blue); color: #fff; }
+
+/* Tabs for Operations */
+.ops-nav { display: flex; gap: 0.5rem; overflow-x: auto; margin-bottom: 1rem; padding-bottom: 0.5rem; }
+.ops-tab-btn { background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text-muted); padding: 0.8rem 1.2rem; border-radius: 10px; cursor: pointer; white-space: nowrap; font-weight: 600; }
+.ops-tab-btn.active { background: #333; color: #fff; border-color: #555; }
+
+/* Custom Checkbox */
+.checkbox-group { margin: 1rem 0; }
+.checkbox-container { display: flex; align-items: flex-start; gap: 15px; cursor: pointer; }
+.checkmark { width: 24px; height: 24px; background: #333; border-radius: 6px; position: relative; flex-shrink: 0; }
+.checkbox-container input { display: none; }
+.checkbox-container input:checked ~ .checkmark { background: var(--accent-blue); }
+.checkbox-container input:checked ~ .checkmark::after { content: '✓'; color: #fff; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-weight: 900; }
+.label-text strong { display: block; font-size: 1rem; color: #fff; }
+.label-text p { font-size: 0.8rem; color: var(--text-muted); margin: 0; }
+
+/* Table Enhancements */
+.badge-banco { padding: 4px 10px; background: #333; border-radius: 6px; font-size: 0.75rem; font-weight: 700; color: #fff; }
+.empty-table { text-align: center; padding: 3rem !important; color: var(--text-muted); font-style: italic; }
+.badge-tipo { padding: 4px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; }
+.gasto-bancario { background: rgba(255, 59, 48, 0.1); color: #FF3B30; }
+.entrega-dueño { background: rgba(175, 82, 222, 0.1); color: #AF52DE; }
+.envío-a-tienda { background: rgba(255, 159, 10, 0.1); color: #FF9F0A; }
+.depósito-a-banco { background: rgba(0, 122, 255, 0.1); color: #0A84FF; }
+.ajuste-de-cuadre { background: rgba(255, 255, 255, 0.1); color: #aaa; }
+
+.btn-icon-danger { background: transparent; border: none; font-size: 1.2rem; cursor: pointer; transition: transform 0.2s; }
+.btn-icon-danger:hover { transform: scale(1.2); }
+
+/* Closure styles */
+.closure-card { border: 1px dashed var(--success); }
+.closure-summary { display: flex; gap: 2rem; margin-bottom: 2rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 1.5rem; }
+.summary-item { display: flex; flex-direction: column; }
+.summary-item .label { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+.summary-item .value { font-size: 2rem; font-weight: 900; }
+.summary-item .value.success { color: #34C759; }
+.summary-item .value.danger { color: #FF3B30; }
+
+.mini-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; margin-top: 1rem; }
+.mini-card { background: var(--glass-bg); padding: 1rem; border-radius: 12px; display: flex; flex-direction: column; gap: 5px; }
+.mini-card .name { font-size: 0.75rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; }
+.mini-card .val { font-size: 1rem; font-weight: 800; }
+
+.info-box, .warning-box { display: flex; gap: 15px; padding: 1.2rem; border-radius: 12px; margin-bottom: 1rem; align-items: center; font-size: 0.9rem; }
+.info-box { background: rgba(10, 132, 255, 0.1); border: 1px solid rgba(10, 132, 255, 0.2); }
+.warning-box { background: rgba(255, 159, 10, 0.1); border: 1px solid rgba(255, 159, 10, 0.2); }
+
+.filter-input-wrapper { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
+.text-xs { font-size: 0.75rem; }

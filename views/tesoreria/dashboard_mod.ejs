@@ -1,0 +1,65 @@
+<!-- Dashboard Module -->
+<div id="module-dashboard" class="tesoreria-module">
+    <div class="stats-grid-premium">
+        <!-- Main Flow Card -->
+        <div class="card-premium flow-card">
+            <div class="card-header-premium">
+                <span class="icon">📈</span>
+                <span class="title">Flujo del Período</span>
+            </div>
+            <div class="flow-list">
+                <% flujoPorBanco.forEach(function(s) { %>
+                    <div class="flow-item" style="--bank-color: <%= s.color || '#888' %>">
+                        <span class="bank-name"><%= s.nombre %></span>
+                        <span class="amount <%= s.monto >= 0 ? 'text-success' : 'text-danger' %>">
+                            <%= s.monto >= 0 ? '+' : '' %> L <%= s.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %>
+                        </span>
+                    </div>
+                <% }); %>
+                <% if (flujoPorBanco.length === 0) { %>
+                    <div class="empty-state">No hay movimientos nuevos</div>
+                <% } %>
+            </div>
+            <div class="flow-total <%= saldoTesoreriaTotalFlujo >= 0 ? 'bg-success-light' : 'bg-danger-light' %>">
+                <span class="label">Balance Neto</span>
+                <span class="total-val"><%= saldoTesoreriaTotalFlujo >= 0 ? '+' : '' %> L <%= saldoTesoreriaTotalFlujo.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></span>
+            </div>
+        </div>
+
+        <!-- Bank Balances Card -->
+        <div class="card-premium">
+            <div class="card-header-premium">
+                <span class="icon">🏦</span>
+                <span class="title">Balances en Bancos</span>
+            </div>
+            <div class="balance-list">
+                <% saldosTotales.forEach(function(st) { %>
+                    <div class="balance-item">
+                        <span class="bank-name"><%= st.nombre %></span>
+                        <span class="amount">L <%= st.saldo.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></span>
+                    </div>
+                <% }); %>
+            </div>
+        </div>
+
+        <!-- En Tránsito Card -->
+        <div class="card-premium status-card warning">
+            <div class="card-header-premium">
+                <span class="icon">🚚</span>
+                <span class="title">Efectivo en Tránsito</span>
+            </div>
+            <div class="status-val">L <%= enTránsito.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></div>
+            <p class="status-desc">Dinero enviado por tiendas pendiente de recepción</p>
+        </div>
+        
+        <!-- Deudas Card -->
+        <div class="card-premium status-card danger">
+            <div class="card-header-premium">
+                <span class="icon">💸</span>
+                <span class="title">Deudas por Pagar</span>
+            </div>
+            <div class="status-val">L <%= deudas.reduce((acc, d) => acc + d.monto, 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></div>
+            <p class="status-desc">Depósitos adelantados pendientes de cobro</p>
+        </div>
+    </div>
+</div>

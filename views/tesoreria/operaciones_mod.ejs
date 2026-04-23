@@ -1,0 +1,245 @@
+<!-- Operaciones Module -->
+<div id="module-operaciones" class="tesoreria-module" style="display: none;">
+    <div class="module-header">
+        <h2>⚙️ Operaciones de Tesorería</h2>
+        <p>Seleccione una acción para registrar movimientos de efectivo o saldos.</p>
+    </div>
+
+    <div class="ops-nav">
+        <button class="ops-tab-btn active" onclick="switchOpTab('op-deposito')">📥 Depósito</button>
+        <button class="ops-tab-btn" onclick="switchOpTab('op-gasto')">💸 Gasto</button>
+        <button class="ops-tab-btn" onclick="switchOpTab('op-entrega')">🏦 Entrega</button>
+        <button class="ops-tab-btn" onclick="switchOpTab('op-envio')">🚚 Envío Tienda</button>
+        <button class="ops-tab-btn" onclick="switchOpTab('op-traslado')">🔄 Traslado</button>
+        <button class="ops-tab-btn" onclick="switchOpTab('op-arqueo')">⚖️ Arqueo</button>
+    </div>
+
+    <div class="card-premium ops-container-form">
+        <!-- FORM 1: DEPÓSITO BANCARIO -->
+        <div id="op-deposito" class="ops-tab-content">
+            <h3 class="op-title">📥 Registrar Depósito Bancario</h3>
+            <form action="/tesoreria/deposito-banco" method="POST" class="premium-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Monto a Depositar</label>
+                        <input type="text" name="monto" class="form-control money-input-premium" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Fondo de Origen</label>
+                        <select name="banco_origen" class="form-control">
+                            <option value="">--- Otros / Suelto ---</option>
+                            <% bancos.forEach(function(b) { %>
+                                <option value="<%= b.id %>"><%= b.nombre %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Banco Destino</label>
+                        <select name="banco_destino" class="form-control" required>
+                            <% bancos.forEach(function(b) { %>
+                                <option value="<%= b.id %>"><%= b.nombre %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Referencia / Comprobante</label>
+                        <input type="text" name="referencia" class="form-control" placeholder="Ej: Remesa #123">
+                    </div>
+                </div>
+                <div class="form-group checkbox-group">
+                    <label class="checkbox-container">
+                        <input type="checkbox" name="adelantado">
+                        <span class="checkmark"></span>
+                        <div class="label-text">
+                            <strong>¿Es Depósito Adelantado?</strong>
+                            <p>Quedará como deuda pendiente hasta que el efectivo sea entregado.</p>
+                        </div>
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-primary-full">Confirmar Depósito</button>
+            </form>
+        </div>
+
+        <!-- FORM 2: GASTO BANCARIO -->
+        <div id="op-gasto" class="ops-tab-content" style="display:none;">
+            <h3 class="op-title">💸 Registrar Gasto Bancario</h3>
+            <form action="/tesoreria/gasto" method="POST" class="premium-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Monto</label>
+                        <input type="text" name="monto" class="form-control money-input-premium" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Banco Origen</label>
+                        <select name="banco_id" class="form-control" required>
+                            <% bancos.forEach(function(b) { %>
+                                <option value="<%= b.id %>"><%= b.nombre %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Categoría</label>
+                        <select name="categoria" class="form-control">
+                            <option value="Servicios">Servicios</option>
+                            <option value="Alquiler">Alquiler</option>
+                            <option value="Sueldos">Planilla</option>
+                            <option value="Impuestos">Impuestos</option>
+                            <option value="Otros" selected>Otros</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Descripción / Concepto</label>
+                        <input type="text" name="descripcion" class="form-control" placeholder="Ej: Pago de Energía Eléctrica" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-danger-full">Registrar Pago</button>
+            </form>
+        </div>
+
+        <!-- FORM 3: ENTREGA DUEÑO -->
+        <div id="op-entrega" class="ops-tab-content" style="display:none;">
+            <h3 class="op-title">🏦 Entrega de Efectivo (Dueño / Retiro)</h3>
+            <form action="/tesoreria/deposito-propietario" method="POST" class="premium-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Monto</label>
+                        <input type="text" name="monto" class="form-control money-input-premium" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Origen de Fondos</label>
+                        <select name="banco_id" class="form-control">
+                            <option value="">--- Otros / Suelto ---</option>
+                            <% bancos.forEach(function(b) { %>
+                                <option value="<%= b.id %>"><%= b.nombre %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Nota / Referencia</label>
+                    <input type="text" name="referencia" class="form-control" placeholder="Ej: Retiro personal / Pago dividendos" required>
+                </div>
+                <button type="submit" class="btn btn-purple-full">Registrar Salida de Capital</button>
+            </form>
+        </div>
+
+        <!-- FORM 4: ENVIAR A TIENDA -->
+        <div id="op-envio" class="ops-tab-content" style="display:none;">
+            <h3 class="op-title">🚚 Enviar Efectivo a Tienda</h3>
+            <form action="/tesoreria/enviar-tienda" method="POST" class="premium-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Monto</label>
+                        <input type="text" name="monto" class="form-control money-input-premium" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Tienda Destino</label>
+                        <select name="tienda_id" class="form-control" required>
+                            <% tiendas.forEach(function(t) { %>
+                                <option value="<%= t.id %>"><%= t.nombre %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Fondo de Origen (Tesorería)</label>
+                        <select name="banco_origen" class="form-control">
+                            <option value="">--- Otros / Suelto ---</option>
+                            <% bancos.forEach(function(b) { %>
+                                <option value="<%= b.id %>"><%= b.nombre %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Nota</label>
+                        <input type="text" name="referencia" class="form-control" placeholder="Ej: Resurtido para fin de semana" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-warning-full">Confirmar Envío a Tienda</button>
+            </form>
+        </div>
+
+        <!-- FORM 5: TRASLADO / INYECCIÓN -->
+        <div id="op-traslado" class="ops-tab-content" style="display:none;">
+            <h3 class="op-title">🔄 Traslado / Inyección de Fondos</h3>
+            <form action="/tesoreria/traslado" method="POST" class="premium-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Monto</label>
+                        <input type="text" name="monto" class="form-control money-input-premium" placeholder="0.00" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Banco Destino</label>
+                        <select name="banco_id" class="form-control" required>
+                            <% bancos.forEach(function(b) { %>
+                                <option value="<%= b.id %>"><%= b.nombre %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Tipo de Traslado</label>
+                    <select name="tipo_traslado" class="form-control">
+                        <option value="solo_saldo">Solo Saldo (Virtual - Ajuste de cuenta)</option>
+                        <option value="saldo_y_efectivo">Saldo y Efectivo (Ingreso físico y virtual)</option>
+                        <option value="solo_efectivo">Solo Efectivo (Suma a Tesorería física)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Referencia / Motivo</label>
+                    <input type="text" name="referencia" class="form-control" placeholder="Ej: Inyección de Capital Socios" required>
+                </div>
+                <button type="submit" class="btn btn-blue-full">Confirmar Traslado</button>
+            </form>
+        </div>
+
+        <!-- FORM 6: ARQUEO / CUADRE -->
+        <div id="op-arqueo" class="ops-tab-content" style="display:none;">
+            <h3 class="op-title">⚖️ Arqueo de Tesorería</h3>
+            <p class="op-desc">Use esta herramienta para ajustar el saldo del sistema al efectivo físico real contado.</p>
+            <form action="/tesoreria/cuadre" method="POST" onsubmit="return confirm('¿Aplicar este arqueo? Se generará un ajuste automático para cuadrar los saldos.')" class="premium-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Banco / Fondo a Ajustar</label>
+                        <select name="banco_id" class="form-control">
+                            <option value="">--- Otros / Suelto ---</option>
+                            <% bancos.forEach(function(b) { %>
+                                <option value="<%= b.id %>"><%= b.nombre %></option>
+                            <% }); %>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Saldo Físico Real (Conteo)</label>
+                        <input type="text" name="monto_real" class="form-control money-input-premium" placeholder="0.00" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Motivo del Ajuste</label>
+                    <input type="text" name="referencia" class="form-control" placeholder="Ej: Arqueo semanal - Faltante por redondeo" required>
+                </div>
+                <div class="warning-box">
+                    <span class="icon">⚠️</span>
+                    <p>El sistema comparará su conteo con el saldo teórico y creará una entrada de ajuste para que coincidan.</p>
+                </div>
+                <button type="submit" class="btn btn-outline-blue-full">Aplicar Cuadre de Caja</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    function switchOpTab(tabId) {
+        // Ocultar todos
+        document.querySelectorAll('.ops-tab-content').forEach(el => el.style.display = 'none');
+        document.querySelectorAll('.ops-tab-btn').forEach(el => el.classList.remove('active'));
+        
+        // Mostrar seleccionado
+        document.getElementById(tabId).style.display = 'block';
+        event.currentTarget.classList.add('active');
+    }
+</script>

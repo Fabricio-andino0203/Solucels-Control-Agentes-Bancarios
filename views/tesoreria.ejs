@@ -1,619 +1,115 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <title>Tesorería Global - Solucels Control Agentes Bancarios</title>
+    <title>Tesorería Central - Solucels Control</title>
     <%- include('partials/head') %>
-    <style>
-        .tesoreria-dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem; }
-        .card-tesoreria { background: var(--bg-card); border-radius: 16px; padding: 2rem; border: 1px solid #333; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
-        .stat-val { font-size: 1.8rem; font-weight: 800; color: var(--accent-blue); margin: 0.5rem 0; }
-        
-        .tesoreria-main-grid { display: grid; grid-template-columns: 1fr; gap: 2rem; align-items: start; }
-        
-        /* Formularios en una sola fila */
-        .forms-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin-top: 1rem; }
-        .form-group-custom { margin-bottom: 1.25rem; }
-        .form-label { display: block; margin-bottom: 0.6rem; color: var(--text-muted); font-size: 0.85rem; font-weight: 600; }
-        .form-control { width: 100%; border-radius: 10px; padding: 0.8rem 1rem; border: 1px solid #333; background: #121212; color: #fff; font-size: 1rem; transition: border-color 0.2s; box-sizing: border-box; }
-        .form-control:focus { outline: none; border-color: var(--accent-blue); }
-        
-        /* Select con flecha personalizada */
-        .select-custom { appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 1rem center; background-size: 0.65rem auto; padding-right: 2.5rem; }
-
-        .btn-tesoreria { width: 100%; padding: 1rem; border-radius: 10px; font-weight: 700; border: none; cursor: pointer; transition: transform 0.2s, opacity 0.2s; font-size: 1rem; }
-        .btn-tesoreria:hover { opacity: 0.9; }
-        .btn-tesoreria:active { transform: scale(0.98); }
-
-        .badge-tipo { padding: 4px 10px; border-radius: 6px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; }
-        .bg-ingreso { background: rgba(52, 199, 89, 0.1); color: #34C759; }
-        .bg-gasto { background: rgba(255, 69, 58, 0.1); color: #FF453A; }
-        .bg-entrega { background: rgba(175, 82, 222, 0.1); color: #AF52DE; }
-        .bg-deposito { background: rgba(0, 122, 255, 0.1); color: #0A84FF; }
-    </style>
+    <link rel="stylesheet" href="/css/tesoreria.css">
 </head>
 <body>
     <%- include('partials/sidebar', { active: 'tesoreria', user: user }) %>
+    
     <main class="main-content">
-        <div class="header">
-            <h1>🪙 Tesorería Global</h1>
-            <div class="user-profile">
-                <span style="color: var(--text-muted);"><%= user.username %></span>
-            </div>
-        </div>
-
-        <!-- RESUMEN DE SALDOS -->
-        <div class="tesoreria-dashboard">
-            <div class="card-tesoreria" style="grid-row: span 2;">
-                <div style="color: var(--text-muted); font-size: 0.9rem; font-weight: 600; margin-bottom: 1.25rem;">Flujo de Operaciones (Desde el último corte)</div>
-                
-                <div style="display: flex; flex-direction: column; gap: 0.6rem;">
-                    <% flujoPorBanco.forEach(function(s) { %>
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 0.8rem; background: rgba(255,255,255,0.03); border-left: 4px solid <%= s.color || '#888' %>; border-radius: 8px;">
-                            <span style="font-size: 0.85rem; font-weight: 700; color: <%= s.color || '#888' %>;"><%= s.nombre %></span>
-                            <span style="font-weight: 800; font-size: 1rem; color: <%= s.monto >= 0 ? '#34C759' : '#FF453A' %>;">
-                                <%= s.monto >= 0 ? '+' : '' %> L <%= s.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %>
-                            </span>
-                        </div>
-                    <% }); %>
-                    <% if (flujoPorBanco.length === 0) { %>
-                        <div style="text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.8rem; border: 1px dashed rgba(255,255,255,0.1); border-radius: 8px;">
-                            No hay movimientos nuevos tras el último corte.
-                        </div>
-                    <% } %>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; padding: 1rem 0.8rem; background: rgba(52, 199, 89, 0.1); border: 1px solid rgba(52, 199, 89, 0.2); border-radius: 10px;">
-                    <span style="font-weight: 900; font-size: 0.8rem; color: #34C759; text-transform: uppercase;">Monto Neto Período</span>
-                    <span style="font-size: 1.4rem; font-weight: 900; color: #34C759;"><%= saldoTesoreriaTotalFlujo >= 0 ? '+' : '' %> L <%= saldoTesoreriaTotalFlujo.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></span>
-                </div>
-            </div>
-
-            <div class="card-tesoreria">
-                <div style="color: var(--text-muted); font-size: 0.9rem; font-weight: 600; margin-bottom: 1.25rem;">Balances en Bancos (Saldos Totales)</div>
-                <div style="display: flex; flex-direction: column; gap: 0.4rem;">
-                    <% saldosTotales.forEach(function(st) { %>
-                        <div style="display: flex; justify-content: space-between; font-size: 0.8rem;">
-                            <span><%= st.nombre %></span>
-                            <span style="font-weight: 700;">L <%= st.saldo.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></span>
-                        </div>
-                    <% }); %>
-                </div>
-            </div>
-
-            <div class="card-tesoreria" style="display: flex; flex-direction: column; justify-content: center; height: fit-content;">
-                <div style="color: var(--text-muted); font-size: 0.9rem; font-weight: 600;">Efectivo en Tránsito</div>
-                <div class="stat-val" style="color: #FF9F0A;">L <%= enTránsito.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></div>
-                <div style="font-size: 0.75rem; color: #555; margin-top: 0.25rem;">Dinero enviado por tiendas pendiente de recepción</div>
-            </div>
-        </div>
-
-        <div class="tesoreria-main-grid">
-            <!-- COLUMNA IZQUIERDA: HISTORIAL Y PENDIENTES -->
+        <header class="header">
             <div>
-                <div class="audit-matrix-container" style="margin-bottom: 2rem;">
-                    <div style="margin-bottom: 2.5rem; border-bottom: 1px solid #333; padding-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
-                        <h2 style="margin: 0; font-size: 1.4rem; display: flex; align-items: center; gap: 12px;">
-                            <span>📜</span> Historial de Movimientos
-                        </h2>
-                        <form action="/tesoreria" method="GET" style="display: flex; gap: 8px; align-items: center;">
-                            <span style="font-size: 0.8rem; color: var(--text-muted);">Ver fecha:</span>
-                            <input type="date" name="fecha" value="<%= filterFecha %>" class="form-control" style="padding: 0.4rem; font-size: 0.85rem; width: auto; background: #1a1a1a;">
-                            <button type="submit" class="badge-tipo bg-deposito" style="border:none; cursor:pointer; height: 32px;">Filtrar</button>
-                        </form>
-                    </div>
-                    <!-- CATEGORÍA: INGRESOS Y REMESAS -->
-                    <div style="margin-bottom: 2rem;">
-                        <div style="margin-bottom: 1rem; font-weight: 700; font-size: 1.1rem; color: #34C759; display: flex; align-items: center; gap: 10px;">
-                            <span>📥</span> Ingresos y Remesas
-                        </div>
-                        <table class="audit-table">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Detalle / Ref</th>
-                                    <th>Origen</th>
-                                    <th>Monto</th>
-                                    <th>Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <% 
-                                    const ingresos = historial.filter(h => h.tipo_trans === 'Remesa Recibida' || h.tipo_trans === 'Traslado (Efectivo)');
-                                    ingresos.forEach(function(h) { 
-                                %>
-                                    <tr>
-                                        <td style="font-size: 0.8rem;"><%= h.fecha ? h.fecha.replace('-06:00','') : '' %></td>
-                                        <td style="font-size: 0.85rem; color: var(--text-muted);"><%= h.ref || '-' %></td>
-                                        <td><%= h.origen || 'Efectivo Cash' %></td>
-                                        <td class="amount-bold text-blue-audit" style="color: #34C759;">+ L <%= h.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
-                                        <td>
-                                            <form action="/tesoreria/<%= h.source_table %>/eliminar/<%= h.log_id %>" method="POST" onsubmit="return confirm('¿Eliminar este registro?')">
-                                                <div style="display: flex; gap: 4px;">
-                                                    <button type="submit" name="revertir" value="true" class="badge-tipo bg-gasto" style="border:none; cursor:pointer;" title="Borrar y devolver dinero">Revertir</button>
-                                                </div>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                <% }); %>
-                                <% if(ingresos.length === 0) { %> <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1rem;">Sin ingresos registrados.</td></tr> <% } %>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- CATEGORÍA: GASTOS BANCARIOS -->
-                    <div style="margin-bottom: 2rem;">
-                        <div style="margin-bottom: 1rem; font-weight: 700; font-size: 1.1rem; color: #FF453A; display: flex; align-items: center; gap: 10px;">
-                            <span>💸</span> Gastos Bancarios
-                        </div>
-                        <table class="audit-table">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Detalle / Ref</th>
-                                    <th>Banco</th>
-                                    <th>Monto</th>
-                                    <th>Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <% 
-                                    const gastos = historial.filter(h => h.tipo_trans === 'Gasto Bancario');
-                                    gastos.forEach(function(h) { 
-                                %>
-                                    <tr>
-                                        <td style="font-size: 0.8rem;"><%= h.fecha ? h.fecha.replace('-06:00','') : '' %></td>
-                                        <td style="font-size: 0.85rem; color: var(--text-muted);"><%= h.ref || '-' %></td>
-                                        <td><%= h.origen %></td>
-                                        <td class="amount-bold text-expense">- L <%= h.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
-                                        <td>
-                                            <form action="/tesoreria/<%= h.source_table %>/eliminar/<%= h.log_id %>" method="POST" onsubmit="return confirm('¿Eliminar este registro?')">
-                                                <div style="display: flex; gap: 4px;">
-                                                    <button type="submit" name="revertir" value="true" class="badge-tipo bg-gasto" style="border:none; cursor:pointer;" title="Borrar y devolver dinero">Revertir</button>
-                                                </div>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                <% }); %>
-                                <% if(gastos.length === 0) { %> <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1rem;">Sin gastos registrados.</td></tr> <% } %>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- CATEGORÍA: ENTREGAS Y SALIDAS -->
-                    <div style="margin-bottom: 2rem;">
-                        <div style="margin-bottom: 1rem; font-weight: 700; font-size: 1.1rem; color: #AF52DE; display: flex; align-items: center; gap: 10px;">
-                            <span>🏦</span> Entregas (Dueño / Tiendas / Pagos)
-                        </div>
-                        <table class="audit-table">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Operación</th>
-                                    <th>Detalle / Ref</th>
-                                    <th>Origen</th>
-                                    <th>Monto</th>
-                                    <th>Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <% 
-                                    const entregas = historial.filter(h => h.tipo_trans === 'Entrega Dueño' || h.tipo_trans === 'Envío a Tienda' || h.tipo_trans === 'Pago Depósito Adelantado');
-                                    entregas.forEach(function(h) { 
-                                %>
-                                    <tr>
-                                        <td style="font-size: 0.8rem;"><%= h.fecha ? h.fecha.replace('-06:00','') : '' %></td>
-                                        <td><span class="badge-tipo bg-entrega"><%= h.tipo_trans %></span></td>
-                                        <td style="font-size: 0.85rem; color: var(--text-muted);"><%= h.ref || '-' %></td>
-                                        <td><%= h.origen %></td>
-                                        <td class="amount-bold text-expense">- L <%= h.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
-                                        <td>
-                                            <form action="/tesoreria/<%= h.source_table %>/eliminar/<%= h.log_id %>" method="POST" onsubmit="return confirm('¿Eliminar este registro?')">
-                                                <div style="display: flex; gap: 4px;">
-                                                    <button type="submit" name="revertir" value="true" class="badge-tipo bg-gasto" style="border:none; cursor:pointer;" title="Borrar y devolver dinero">Revertir</button>
-                                                </div>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                <% }); %>
-                                <% if(entregas.length === 0) { %> <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1rem;">Sin entregas registradas.</td></tr> <% } %>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- CATEGORÍA: DEPÓSITOS Y TRASLADOS -->
-                    <div style="margin-bottom: 2rem;">
-                        <div style="margin-bottom: 1rem; font-weight: 700; font-size: 1.1rem; color: #0A84FF; display: flex; align-items: center; gap: 10px;">
-                            <span>🔄</span> Depósitos y Traslados Virtuales
-                        </div>
-                        <table class="audit-table">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Operación</th>
-                                    <th>Detalle / Ref</th>
-                                    <th>Origen ➔ Destino</th>
-                                    <th>Monto</th>
-                                    <th>Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <% 
-                                    const depositos = historial.filter(h => h.tipo_trans === 'Depósito a Banco' || h.tipo_trans === 'Traslado (Solo Saldo)');
-                                    depositos.forEach(function(h) { 
-                                %>
-                                    <tr>
-                                        <td style="font-size: 0.8rem;"><%= h.fecha ? h.fecha.replace('-06:00','') : '' %></td>
-                                        <td><span class="badge-tipo bg-deposito"><%= h.tipo_trans %></span></td>
-                                        <td style="font-size: 0.85rem; color: var(--text-muted);"><%= h.ref || '-' %></td>
-                                        <td><%= h.origen %></td>
-                                        <td class="amount-bold" style="color:#0A84FF;"><%= h.tipo_trans.startsWith('Traslado') ? '+' : '-' %> L <%= h.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
-                                        <td>
-                                            <form action="/tesoreria/<%= h.source_table %>/eliminar/<%= h.log_id %>" method="POST" onsubmit="return confirm('¿Eliminar este registro?')">
-                                                <div style="display: flex; gap: 4px;">
-                                                    <button type="submit" name="revertir" value="true" class="badge-tipo bg-gasto" style="border:none; cursor:pointer;" title="Borrar y devolver dinero">Revertir</button>
-                                                </div>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                <% }); %>
-                                <% if(depositos.length === 0) { %> <tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 1rem;">Sin depósitos registrados.</td></tr> <% } %>
-                            </tbody>
-                        </table>
-                    </div>
-
-                    <!-- CATEGORÍA: AJUSTES -->
-                    <div style="margin-bottom: 2rem;">
-                        <div style="margin-bottom: 1rem; font-weight: 700; font-size: 1.1rem; color: #888; display: flex; align-items: center; gap: 10px;">
-                            <span>⚖️</span> Ajustes de Cuadre
-                        </div>
-                        <table class="audit-table">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Detalle / Ref</th>
-                                    <th>Banco/Fondo</th>
-                                    <th>Diferencia</th>
-                                    <th>Acción</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <% 
-                                    const ajustes = historial.filter(h => h.tipo_trans === 'Ajuste de Cuadre');
-                                    ajustes.forEach(function(h) { 
-                                %>
-                                    <tr>
-                                        <td style="font-size: 0.8rem;"><%= h.fecha ? h.fecha.replace('-06:00','') : '' %></td>
-                                        <td style="font-size: 0.85rem; color: var(--text-muted);"><%= h.ref || '-' %></td>
-                                        <td><%= h.origen %></td>
-                                        <td class="amount-bold" style="color:#aaa;">L <%= h.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
-                                        <td>
-                                            <form action="/tesoreria/<%= h.source_table %>/eliminar/<%= h.log_id %>" method="POST" onsubmit="return confirm('¿Eliminar este registro?')">
-                                                <div style="display: flex; gap: 4px;">
-                                                    <button type="submit" name="revertir" value="true" class="badge-tipo bg-gasto" style="border:none; cursor:pointer;" title="Borrar y revertir ajuste">Revertir</button>
-                                                </div>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                <% }); %>
-                                <% if(ajustes.length === 0) { %> <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1rem;">Sin ajustes registrados.</td></tr> <% } %>
-                            </tbody>
-                        </table>
-                    </div>
+                <h1>🪙 Tesorería Central</h1>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">Gestión modular de efectivo y bancos</p>
+            </div>
+            <div class="user-profile">
+                <div style="text-align: right; margin-right: 1rem;">
+                    <div style="font-weight: 700;"><%= user.username %></div>
+                    <div style="font-size: 0.75rem; color: var(--accent-blue);"><%= user.rol %></div>
                 </div>
-
-                <div class="audit-matrix-container">
-                    <div style="margin-bottom: 1.25rem; font-weight: 700; font-size: 1.1rem; color: #FF453A;">💸 Depósitos por Pagar (Deudas)</div>
-                    <table class="audit-table">
-                        <thead>
-                            <tr>
-                                <th>Fecha</th>
-                                <th>Banco</th>
-                                <th>Monto</th>
-                                <th>Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <% deudas.forEach(function(d) { %>
-                                <tr>
-                                    <td style="font-size: 0.8rem;"><%= d.fecha_hora %></td>
-                                    <td><%= d.banco_nombre %></td>
-                                    <td class="amount-bold" style="color: #FF453A;">L <%= d.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
-                                    <td>
-                                        <div style="display: flex; gap: 6px; align-items: center;">
-                                            <form action="/tesoreria/pagar-adelantado/<%= d.id %>" method="POST">
-                                                <button type="submit" class="badge-tipo bg-deposito" style="border:none; cursor:pointer; padding: 6px 12px;" title="Marcar como pagado">Pagar</button>
-                                            </form>
-                                            <form action="/tesoreria/deuda/eliminar/<%= d.id %>" method="POST" onsubmit="return confirm('¿Eliminar esta deuda?')">
-                                                <button type="submit" name="revertir" value="true" class="badge-tipo bg-gasto" style="border:none; cursor:pointer; padding: 6px 10px;" title="Borrar y restar saldo del banco">Revertir</button>
-                                                <button type="submit" name="revertir" value="false" class="badge-tipo" style="background:rgba(255,255,255,0.1); color:#aaa; border:none; cursor:pointer; padding: 6px 10px;" title="Solo quitar de la lista">Borrar</button>
-                                            </form>
-                                        </div>
-                                    </td>
-                                </tr>
-                            <% }); %>
-                            <% if(deudas.length === 0) { %>
-                                <tr><td colspan="4" style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay deudas por depósitos adelantados.</td></tr>
-                            <% } %>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="audit-matrix-container">
-                    <div style="margin-bottom: 1.25rem; font-weight: 700; font-size: 1.1rem;">📦 Recepciones Pendientes</div>
-                    <table class="audit-table">
-                        <thead>
-                            <tr>
-                                <th>Origen</th>
-                                <th>Banco</th>
-                                <th>Monto</th>
-                                <th>Acción</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <% remesasPendientes.forEach(function(r) { %>
-                                <tr>
-                                    <td><%= r.tienda_nombre %></td>
-                                    <td><span style="font-size:0.8rem; color:var(--text-muted);"><%= r.banco_nombre || 'Otros' %></span></td>
-                                    <td class="amount-bold">L <%= r.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
-                                    <td>
-                                        <div style="display: flex; gap: 6px; align-items: center;">
-                                            <form action="/tesoreria/recibir/<%= r.id %>" method="POST">
-                                                <button type="submit" class="badge-tipo bg-ingreso" style="border:none; cursor:pointer; padding: 6px 12px; font-weight:bold;">Confirmar</button>
-                                            </form>
-                                            <form action="/tesoreria/remesa/eliminar/<%= r.id %>" method="POST" onsubmit="return confirm('¿Eliminar esta recepción pendiente?')">
-                                                <div style="display: flex; gap: 4px;">
-                                                    <button type="submit" name="revertir" value="true" class="badge-tipo bg-gasto" style="border:none; cursor:pointer;" title="Borrar y devolver dinero a la caja de la tienda">Revertir</button>
-                                                    <button type="submit" name="revertir" value="false" class="badge-tipo" style="background:rgba(255,255,255,0.1); color:#aaa; border:none; cursor:pointer;" title="Solo quitar de la lista">Borrar</button>
-                                                </div>
-                                            </form>
-                                        </div>
-                                    </td>
-                                </tr>
-                            <% }); %>
-                            <% if(remesasPendientes.length === 0) { %>
-                                <tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay efectivo por recibir de tiendas.</td></tr>
-                            <% } %>
-                        </tbody>
-                    </table>
+                <div class="avatar-mini" style="background: var(--accent-blue); width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #fff;">
+                    <%= user.username.substring(0,2).toUpperCase() %>
                 </div>
             </div>
+        </header>
 
-        <!-- FILA DE FORMULARIOS (3 EN UNA FILA) -->
-        <div style="margin-top: 2rem;">
-            <div style="margin-bottom: 1.25rem; font-weight: 700; font-size: 1.1rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px;">⚙️ Acciones de Tesorería</div>
-            <div class="forms-row">
-                <!-- FORM 1: DEPÓSITO BANCARIO -->
-                <div class="card-tesoreria">
-                    <h3 style="margin-bottom: 1.5rem; font-size: 1.1rem; display: flex; align-items: center; gap: 10px;">
-                        <span>📥</span> Depósito Bancario
-                    </h3>
-                    <form action="/tesoreria/deposito-banco" method="POST">
-                        <div class="form-group-custom">
-                            <label class="form-label">Monto</label>
-                            <input type="text" name="monto" class="form-control money-input" placeholder="L 0.00" required>
-                        </div>
-                        <div class="form-group-custom">
-                            <label class="form-label">Efectivo de (Origen)</label>
-                            <select name="banco_origen" class="form-control select-custom">
-                                <option value="">--- Otros / Suelto ---</option>
-                                <% bancos.forEach(function(b) { %>
-                                    <option value="<%= b.id %>"><%= b.nombre %></option>
-                                <% }); %>
-                            </select>
-                        </div>
-                        <div class="form-group-custom">
-                            <label class="form-label">Cuenta Bancaria (Destino)</label>
-                            <select name="banco_destino" class="form-control select-custom" required>
-                                <% bancos.forEach(function(b) { %>
-                                    <option value="<%= b.id %>"><%= b.nombre %></option>
-                                <% }); %>
-                            </select>
-                        </div>
-                        <div class="form-group-custom">
-                            <label class="form-label">Referencia</label>
-                            <input type="text" name="referencia" class="form-control" placeholder="Ej: Remesa">
-                        </div>
-                        <div class="form-group-custom" style="display: flex; align-items: center; gap: 10px; background: rgba(255,159,10,0.1); padding: 10px; border-radius: 8px; border: 1px solid rgba(255,159,10,0.2);">
-                            <input type="checkbox" name="adelantado" id="adelantado" style="width: 20px; height: 20px;">
-                            <label for="adelantado" style="font-size: 0.85rem; font-weight: 700; color: #FF9F0A; cursor: pointer;">
-                                ¿Es Depósito Adelantado? <br>
-                                <span style="font-size: 0.7rem; font-weight: normal; color: #aaa;">(Quedará como deuda pendiente)</span>
-                            </label>
-                        </div>
-                        <button type="submit" class="btn-tesoreria" style="background: #34C759; color: white;">Confirmar Depósito</button>
-                    </form>
-                </div>
+        <div class="tesoreria-container">
+            <!-- Sidebar Navegación Modular -->
+            <nav class="tesoreria-nav">
+                <button class="nav-module-btn active" data-module="dashboard" onclick="showModule('dashboard')">
+                    <span class="icon">📊</span> Dashboard
+                </button>
+                <button class="nav-module-btn" data-module="recepciones" onclick="showModule('recepciones')">
+                    <span class="icon">📥</span> Recepciones 
+                    <% if(remesasPendientes.length > 0) { %>
+                        <span style="background: var(--danger); font-size: 0.6rem; padding: 2px 6px; border-radius: 10px; margin-left: auto;"><%= remesasPendientes.length %></span>
+                    <% } %>
+                </button>
+                <button class="nav-module-btn" data-module="operaciones" onclick="showModule('operaciones')">
+                    <span class="icon">⚙️</span> Operaciones
+                </button>
+                <button class="nav-module-btn" data-module="auditoria" onclick="showModule('auditoria')">
+                    <span class="icon">📜</span> Auditoría
+                </button>
+                <% if(user.rol === 'Admin' || user.rol === 'Contador') { %>
+                    <button class="nav-module-btn" data-module="cierre" onclick="showModule('cierre')">
+                        <span class="icon">🏁</span> Corte Diario
+                    </button>
+                <% } %>
+            </nav>
 
-                <!-- FORM 2: GASTO BANCARIO -->
-                <div class="card-tesoreria">
-                    <h3 style="margin-bottom: 1.5rem; font-size: 1.1rem; display: flex; align-items: center; gap: 10px;">
-                        <span>💸</span> Gasto Bancario
-                    </h3>
-                    <form action="/tesoreria/gasto" method="POST">
-                        <div class="form-group-custom">
-                            <label class="form-label">Monto</label>
-                            <input type="text" name="monto" class="form-control money-input" placeholder="L 0.00" required>
-                        </div>
-                        <div class="form-group-custom">
-                            <label class="form-label">Banco Origen</label>
-                            <select name="banco_id" class="form-control select-custom" required>
-                                <% bancos.forEach(function(b) { %>
-                                    <option value="<%= b.id %>"><%= b.nombre %></option>
-                                <% }); %>
-                            </select>
-                        </div>
-                        <div class="form-group-custom">
-                            <label class="form-label">Categoría</label>
-                            <select name="categoria" class="form-control select-custom">
-                                <option value="Servicios">Servicios</option>
-                                <option value="Alquiler">Alquiler</option>
-                                <option value="Sueldos">Planilla</option>
-                                <option value="Otros" selected>Otros</option>
-                            </select>
-                        </div>
-                        <div class="form-group-custom">
-                            <label class="form-label">Descripción</label>
-                            <input type="text" name="descripcion" class="form-control" placeholder="Ej: Pago de internet" required>
-                        </div>
-                        <button type="submit" class="btn-tesoreria" style="background: var(--accent-blue); color: white;">Registrar Pago</button>
-                    </form>
-                </div>
-
-                <!-- FORM 3: ENTREGA PROPIETARIO -->
-                <div class="card-tesoreria">
-                    <h3 style="margin-bottom: 1.5rem; font-size: 1.1rem; display: flex; align-items: center; gap: 10px;">
-                        <span>🏦</span> Entrega Dueño
-                    </h3>
-                    <form action="/tesoreria/deposito-propietario" method="POST">
-                        <div class="form-group-custom">
-                            <label class="form-label">Monto</label>
-                            <input type="text" name="monto" class="form-control money-input" placeholder="L 0.00" required>
-                        </div>
-                        <div class="form-group-custom">
-                            <label class="form-label">Banco Origen de la Caja</label>
-                            <select name="banco_id" class="form-control select-custom">
-                                <option value="">--- Otros / Suelto ---</option>
-                                <% bancos.forEach(function(b) { %>
-                                    <option value="<%= b.id %>"><%= b.nombre %></option>
-                                <% }); %>
-                            </select>
-                        </div>
-                        <div class="form-group-custom">
-                            <label class="form-label">Nota</label>
-                            <input type="text" name="referencia" class="form-control" placeholder="Ej: Retiro" required>
-                        </div>
-                        <button type="submit" class="btn-tesoreria" style="background: #6C2D91; color: white;">Registrar Salida</button>
-                    </form>
-                </div>
-
-                <!-- FORM 4: ENVIAR EFECTIVO A TIENDA -->
-                <div class="card-tesoreria">
-                    <h3 style="margin-bottom: 1.5rem; font-size: 1.1rem; display: flex; align-items: center; gap: 10px;">
-                        <span>🚚</span> Enviar a Tienda
-                    </h3>
-                    <form action="/tesoreria/enviar-tienda" method="POST">
-                        <div class="form-group-custom">
-                            <label class="form-label">Monto</label>
-                            <input type="text" name="monto" class="form-control money-input" placeholder="L 0.00" required>
-                        </div>
-                        <div class="form-group-custom">
-                            <label class="form-label">Tienda Destino</label>
-                            <select name="tienda_id" class="form-control select-custom" required>
-                                <% tiendas.forEach(function(t) { %>
-                                    <option value="<%= t.id %>"><%= t.nombre %></option>
-                                <% }); %>
-                            </select>
-                        </div>
-                        <div class="form-group-custom">
-                            <label class="form-label">Fondo de (Origen)</label>
-                            <select name="banco_origen" class="form-control select-custom">
-                                <option value="">--- Otros / Suelto ---</option>
-                                <% bancos.forEach(function(b) { %>
-                                    <option value="<%= b.id %>"><%= b.nombre %></option>
-                                <% }); %>
-                            </select>
-                        </div>
-                        <div class="form-group-custom">
-                            <label class="form-label">Nota</label>
-                            <input type="text" name="referencia" class="form-control" placeholder="Ej: Resurtido Caja" required>
-                        </div>
-                        <button type="submit" class="btn-tesoreria" style="background: #FF9F0A; color: white;">Confirmar Envío</button>
-                    </form>
-                </div>
-
-                <!-- FORM 5: TRASLADO / INYECCIÓN -->
-                <div class="card-tesoreria">
-                    <h3 style="margin-bottom: 1.5rem; font-size: 1.1rem; display: flex; align-items: center; gap: 10px;">
-                        <span>🔄</span> Traslado / Inyección
-                    </h3>
-                    <form action="/tesoreria/traslado" method="POST">
-                        <div class="form-group-custom">
-                            <label class="form-label">Monto</label>
-                            <input type="text" name="monto" class="form-control money-input" placeholder="L 0.00" required>
-                        </div>
-                        <div class="form-group-custom">
-                            <label class="form-label">Banco Destino</label>
-                            <select name="banco_id" class="form-control select-custom" required>
-                                <% bancos.forEach(function(b) { %>
-                                    <option value="<%= b.id %>"><%= b.nombre %></option>
-                                <% }); %>
-                            </select>
-                        </div>
-                        <div class="form-group-custom">
-                            <label class="form-label">Referencia / Nota</label>
-                            <input type="text" name="referencia" class="form-control" placeholder="Ej: Inyección de Capital" required>
-                        </div>
-                        <div class="form-group-custom">
-                            <label class="form-label">¿Afectar Efectivo?</label>
-                            <select name="tipo_traslado" class="form-control select-custom">
-                                <option value="solo_saldo">Solo Saldo (Virtual)</option>
-                                <option value="saldo_y_efectivo">Saldo y Efectivo (Ambos)</option>
-                                <option value="solo_efectivo">Solo Efectivo (Suma a Tesorería)</option>
-                            </select>
-                        </div>
-                        <button type="submit" class="btn-tesoreria" style="background: #007AFF; color: white;">Confirmar Traslado</button>
-                    </form>
-                </div>
-
-                <!-- FORM 6: CUADRE / ARQUEO DE TESORERÍA -->
-                <div class="card-tesoreria" style="border: 1px solid var(--accent-blue);">
-                    <h3 style="margin-bottom: 1.5rem; font-size: 1.1rem; display: flex; align-items: center; gap: 10px;">
-                        <span>⚖️</span> Arqueo de Tesorería
-                    </h3>
-                    <form action="/tesoreria/cuadre" method="POST" onsubmit="return confirm('¿Estás seguro de que quieres ajustar el saldo? Se creará un registro de ajuste.')">
-                        <div class="form-group-custom">
-                            <label class="form-label">Banco / Fondo a Ajustar</label>
-                            <select name="banco_id" class="form-control select-custom">
-                                <option value="">--- Otros / Suelto ---</option>
-                                <% bancos.forEach(function(b) { %>
-                                    <option value="<%= b.id %>"><%= b.nombre %></option>
-                                <% }); %>
-                            </select>
-                        </div>
-                        <div class="form-group-custom">
-                            <label class="form-label">Saldo Físico Real (Conteo)</label>
-                            <input type="text" name="monto_real" class="form-control money-input" placeholder="L 0.00" required>
-                        </div>
-                        <div class="form-group-custom">
-                            <label class="form-label">Motivo del Ajuste</label>
-                            <input type="text" name="referencia" class="form-control" placeholder="Ej: Arqueo fin de semana" required>
-                        </div>
-                        <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
-                            * El sistema comparará este monto con el saldo actual y generará una entrada de ajuste automática.
-                        </p>
-                        <button type="submit" class="btn-tesoreria" style="background: var(--bg-card); color: var(--accent-blue); border: 2px solid var(--accent-blue);">Aplicar Cuadre</button>
-                    </form>
-                </div>
-            </div>
+            <!-- Área de Contenido Modular -->
+            <div class="tesoreria-content">
+                <%- include('tesoreria/dashboard_mod') %>
+                <%- include('tesoreria/recepciones_mod') %>
+                <%- include('tesoreria/operaciones_mod') %>
+                <%- include('tesoreria/auditoria_mod') %>
+                <%- include('tesoreria/cierre_mod') %>
             </div>
         </div>
-
-        <% if(user.rol === 'Admin' || user.rol === 'Contador') { %>
-            <!-- Seccion de Cierre Diario -->
-            <div style="margin-top: 3rem; padding: 2rem; background: rgba(52, 199, 89, 0.05); border-radius: 16px; border: 1px dashed #34C759; margin-bottom: 3rem;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
-                    <div>
-                        <h2 style="margin: 0; font-size: 1.5rem; color: #34C759;">🏁 Corte de Caja Central</h2>
-                        <p style="margin: 5px 0 0; color: var(--text-muted); font-size: 0.9rem;">Al realizar este corte, se fijarán los saldos actuales como base. <b>El historial se conserva</b> y el flujo del periodo iniciará desde cero.</p>
-                    </div>
-                    <div style="text-align: right;">
-                        <div style="font-size: 0.8rem; color: var(--text-muted);">Efectivo Total en Tesorería:</div>
-                        <div style="font-size: 1.5rem; font-weight: 800; color: #34C759;">L <%= (saldoTesoreriaTotalReal || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></div>
-                    </div>
-                </div>
-
-                <form action="/tesoreria/cierre" method="POST" onsubmit="return confirm('¿Estás seguro de realizar el corte? Los saldos actuales serán la base del siguiente periodo.')">
-                    <div class="form-group-custom">
-                        <label class="form-label">Observaciones del Cierre</label>
-                        <textarea name="observaciones" class="form-control" style="background: rgba(255,255,255,0.05); height: 80px; border: 1px solid rgba(52,199,89,0.2);" placeholder="Ej: Todo cuadra correctamente."></textarea>
-                    </div>
-                    <button type="submit" class="btn-tesoreria" style="background: #34C759; color: white; width: auto; padding: 1rem 3rem; font-size: 1.1rem; margin-top: 1rem; border: none; cursor: pointer; border-radius: 8px; font-weight: 700;">
-                        Realizar Corte de Caja (Fijar Saldos)
-                    </button>
-                </form>
-            </div>
-        <% } %>
     </main>
+
     <script src="/js/money-formatter.js"></script>
+    <script>
+        function showModule(moduleId) {
+            // Ocultar todos los módulos
+            document.querySelectorAll('.tesoreria-module').forEach(m => m.style.display = 'none');
+            // Quitar active de botones
+            document.querySelectorAll('.nav-module-btn').forEach(b => b.classList.remove('active'));
+            
+            // Mostrar seleccionado
+            document.getElementById('module-' + moduleId).style.display = 'block';
+            // Marcar botón active
+            document.querySelector(`[data-module="${moduleId}"]`).classList.add('active');
+            
+            // Guardar en URL sin recargar
+            const url = new URL(window.location);
+            url.searchParams.set('module', moduleId);
+            window.history.pushState({}, '', url);
+        }
+
+        // Cargar módulo desde URL al iniciar
+        window.addEventListener('load', () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const initialModule = urlParams.get('module') || 'dashboard';
+            showModule(initialModule);
+        });
+
+        // Formateo de inputs de dinero
+        document.querySelectorAll('.money-input-premium').forEach(input => {
+            input.addEventListener('input', function(e) {
+                let value = e.target.value.replace(/[^0-9.]/g, '');
+                if (value) {
+                    // Solo permitir un punto decimal
+                    let parts = value.split('.');
+                    if (parts.length > 2) value = parts[0] + '.' + parts.slice(1).join('');
+                }
+                e.target.value = value;
+            });
+            
+            input.addEventListener('blur', function(e) {
+                let value = parseFloat(e.target.value);
+                if (!isNaN(value)) {
+                    e.target.value = value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                }
+            });
+
+            input.addEventListener('focus', function(e) {
+                e.target.value = e.target.value.replace(/,/g, '');
+            });
+        });
+    </script>
 </body>
 </html>

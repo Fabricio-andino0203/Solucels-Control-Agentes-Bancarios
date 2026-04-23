@@ -99,16 +99,7 @@
                         </div>
                     <% }) %>
 
-                    <!-- OTROS / SUELTO -->
-                    <div class="bank-input-card" style="border-style: dashed;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem;">
-                            <label class="bank-label" style="color: #888; margin-bottom: 0;">Otros / Suelto</label>
-                            <% if(typeof saldosSugeridos !== 'undefined' && saldosSugeridos['Otros'] > 0) { %>
-                                <span style="font-size: 0.65rem; background: rgba(52, 201, 89, 0.15); color: #34C759; padding: 2px 8px; border-radius: 6px; font-weight: 800;">Sug: L <%= saldosSugeridos['Otros'].toLocaleString() %></span>
-                            <% } %>
-                        </div>
-                        <input type="text" name="banco_Otros" class="input-apertura format-money" placeholder="0.00" required>
-                    </div>
+
                 </div>
 
                 <div class="total-apertura-footer">

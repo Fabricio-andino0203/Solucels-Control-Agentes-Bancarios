@@ -1,0 +1,50 @@
+<!-- Cierre Module -->
+<div id="module-cierre" class="tesoreria-module" style="display: none;">
+    <div class="module-header">
+        <h2>🏁 Corte de Caja Central</h2>
+        <p>Finalice el período operativo y fije los saldos base para el siguiente período.</p>
+    </div>
+
+    <% if(user.rol === 'Admin' || user.rol === 'Contador') { %>
+        <div class="card-premium closure-card">
+            <div class="closure-summary">
+                <div class="summary-item">
+                    <span class="label">Efectivo Total en Tesorería</span>
+                    <span class="value success">L <%= (saldoTesoreriaTotalReal || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></span>
+                </div>
+                <div class="summary-item">
+                    <span class="label">Flujo Neto del Período</span>
+                    <span class="value <%= saldoTesoreriaTotalFlujo >= 0 ? 'success' : 'danger' %>">L <%= (saldoTesoreriaTotalFlujo || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></span>
+                </div>
+            </div>
+
+            <div class="closure-details">
+                <h3>Resumen de Saldos a Fijar</h3>
+                <div class="mini-grid">
+                    <% saldosTotales.forEach(function(s) { %>
+                        <div class="mini-card">
+                            <span class="name"><%= s.nombre %></span>
+                            <span class="val">L <%= s.saldo.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></span>
+                        </div>
+                    <% }); %>
+                </div>
+            </div>
+
+            <form action="/tesoreria/cierre" method="POST" onsubmit="return confirm('¿Confirmar Corte de Caja? Los saldos actuales se convertirán en la base inicial y el contador de flujo se reiniciará.')" class="premium-form closure-form">
+                <div class="form-group">
+                    <label>Observaciones del Cierre</label>
+                    <textarea name="observaciones" class="form-control" placeholder="Escriba notas relevantes sobre este cierre..."></textarea>
+                </div>
+                <div class="info-box">
+                    <span class="icon">ℹ️</span>
+                    <p>Al realizar este corte, el historial de movimientos <strong>se conserva intacto</strong>, pero el panel de flujo se reseteará para mostrar los cambios a partir de este momento.</p>
+                </div>
+                <button type="submit" class="btn btn-success-full btn-lg">Ejecutar Corte de Caja Central</button>
+            </form>
+        </div>
+    <% } else { %>
+        <div class="card-premium">
+            <p class="text-center text-muted">No tiene permisos suficientes para realizar el corte de caja central.</p>
+        </div>
+    <% } %>
+</div>

@@ -1,0 +1,143 @@
+<!-- Auditoria Module -->
+<div id="module-auditoria" class="tesoreria-module" style="display: none;">
+    <div class="module-header-split">
+        <div>
+            <h2>📜 Historial & Auditoría</h2>
+            <p>Registro detallado de todos los movimientos de tesorería.</p>
+        </div>
+        <form action="/tesoreria" method="GET" class="filter-form-premium">
+            <input type="hidden" name="module" value="auditoria">
+            <div class="filter-group">
+                <label>Filtrar por Fecha:</label>
+                <div class="filter-input-wrapper">
+                    <input type="date" name="fecha" value="<%= filterFecha %>" class="form-control-sm">
+                    <button type="submit" class="btn btn-sm btn-primary">Filtrar</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- CATEGORÍA: INGRESOS Y REMESAS -->
+    <div class="card-premium">
+        <div class="card-header-premium">
+            <span class="icon">📥</span>
+            <span class="title">Ingresos y Remesas Recibidas</span>
+        </div>
+        <div class="table-responsive">
+            <table class="audit-table">
+                <thead>
+                    <tr>
+                        <th>Fecha/Hora</th>
+                        <th>Origen</th>
+                        <th>Detalle / Referencia</th>
+                        <th>Monto</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% 
+                        const ingresos = historial.filter(h => h.tipo_trans === 'Remesa Recibida' || h.tipo_trans === 'Traslado (Efectivo)');
+                        ingresos.forEach(function(h) { 
+                    %>
+                        <tr>
+                            <td><span class="text-xs text-muted"><%= h.fecha ? h.fecha.replace('-06:00','') : '' %></span></td>
+                            <td><strong><%= h.origen || 'Efectivo Cash' %></strong></td>
+                            <td class="text-muted"><%= h.ref || '-' %></td>
+                            <td class="amount-bold text-success">+ L <%= h.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
+                            <td>
+                                <form action="/tesoreria/<%= h.source_table %>/eliminar/<%= h.log_id %>" method="POST" onsubmit="return confirm('¿Eliminar este registro?')">
+                                    <button type="submit" name="revertir" value="true" class="btn-icon-danger" title="Revertir Movimiento">🗑️</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <% }); %>
+                    <% if(ingresos.length === 0) { %> <tr><td colspan="5" class="empty-table">Sin ingresos registrados en esta fecha.</td></tr> <% } %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- CATEGORÍA: SALIDAS (GASTOS, ENTREGAS, ENVIOS) -->
+    <div class="card-premium" style="margin-top: 2rem;">
+        <div class="card-header-premium">
+            <span class="icon">📤</span>
+            <span class="title">Salidas (Gastos y Entregas)</span>
+        </div>
+        <div class="table-responsive">
+            <table class="audit-table">
+                <thead>
+                    <tr>
+                        <th>Fecha/Hora</th>
+                        <th>Operación</th>
+                        <th>Origen/Banco</th>
+                        <th>Detalle</th>
+                        <th>Monto</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% 
+                        const salidas = historial.filter(h => ['Gasto Bancario', 'Entrega Dueño', 'Envío a Tienda', 'Pago Depósito Adelantado', 'Depósito a Banco'].includes(h.tipo_trans));
+                        salidas.forEach(function(h) { 
+                    %>
+                        <tr>
+                            <td><span class="text-xs text-muted"><%= h.fecha ? h.fecha.replace('-06:00','') : '' %></span></td>
+                            <td><span class="badge-tipo <%= h.tipo_trans.replace(/\s/g, '-').toLowerCase() %>"><%= h.tipo_trans %></span></td>
+                            <td><strong><%= h.origen %></strong></td>
+                            <td class="text-muted"><%= h.ref || '-' %></td>
+                            <td class="amount-bold text-danger">- L <%= h.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
+                            <td>
+                                <form action="/tesoreria/<%= h.source_table %>/eliminar/<%= h.log_id %>" method="POST" onsubmit="return confirm('¿Eliminar este registro?')">
+                                    <button type="submit" name="revertir" value="true" class="btn-icon-danger" title="Revertir Movimiento">🗑️</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <% }); %>
+                    <% if(salidas.length === 0) { %> <tr><td colspan="6" class="empty-table">Sin salidas registradas en esta fecha.</td></tr> <% } %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- CATEGORÍA: AJUSTES Y TRASLADOS -->
+    <div class="card-premium" style="margin-top: 2rem;">
+        <div class="card-header-premium">
+            <span class="icon">⚖️</span>
+            <span class="title">Ajustes y Traslados Virtuales</span>
+        </div>
+        <div class="table-responsive">
+            <table class="audit-table">
+                <thead>
+                    <tr>
+                        <th>Fecha/Hora</th>
+                        <th>Tipo</th>
+                        <th>Banco/Fondo</th>
+                        <th>Referencia</th>
+                        <th>Diferencia</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% 
+                        const ajustes = historial.filter(h => h.tipo_trans === 'Ajuste de Cuadre' || h.tipo_trans === 'Traslado (Solo Saldo)');
+                        ajustes.forEach(function(h) { 
+                    %>
+                        <tr>
+                            <td><span class="text-xs text-muted"><%= h.fecha ? h.fecha.replace('-06:00','') : '' %></span></td>
+                            <td><span class="badge-tipo <%= h.tipo_trans.replace(/\s/g, '-').toLowerCase() %>"><%= h.tipo_trans %></span></td>
+                            <td><strong><%= h.origen %></strong></td>
+                            <td class="text-muted"><%= h.ref || '-' %></td>
+                            <td class="amount-bold <%= h.monto >= 0 ? 'text-success' : 'text-danger' %>">L <%= h.monto.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
+                            <td>
+                                <form action="/tesoreria/<%= h.source_table %>/eliminar/<%= h.log_id %>" method="POST" onsubmit="return confirm('¿Eliminar este ajuste?')">
+                                    <button type="submit" name="revertir" value="true" class="btn-icon-danger">🗑️</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <% }); %>
+                    <% if(ajustes.length === 0) { %> <tr><td colspan="6" class="empty-table">Sin ajustes registrados en esta fecha.</td></tr> <% } %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

@@ -41,15 +41,7 @@
                     </div>
                 <% }); %>
                 
-                <% if (tesoreriaOtros > 0) { %>
-                <div class="audit-stat-card" style="border-left: 4px solid #8e8e93;">
-                    <div class="audit-stat-label">Efectivo Físico en Tesorería (Suelto/Otros)</div>
-                    <div class="audit-stat-value" style="color: #fff;">L <%= tesoreriaOtros.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></div>
-                    <div style="margin-top: 0.8rem; font-size: 0.8rem; color: var(--text-muted); font-weight: 500; border-top:1px solid rgba(255,255,255,0.05); padding-top:0.4rem;">
-                        Recibido de tiendas, pendiente de depósito o asignación.
-                    </div>
-                </div>
-                <% } %>
+
                 
                 <!-- La tarjeta de EFECTIVO EN TRÁNSITO ha sido eliminada por solicitud -->
             </div>
