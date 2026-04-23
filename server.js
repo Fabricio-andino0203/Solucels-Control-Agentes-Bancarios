@@ -650,6 +650,59 @@ app.get('/tesoreria', requireAdminOrContador, (req, res) => {
 });
 });
 
+app.post('/tesoreria/cierre', requireAdminOrContador, (req, res) => {
+    const { observaciones } = req.body;
+    const now = getLocalTime();
+
+    // 1. Obtener el último cierre para tener la base anterior
+    db.get("SELECT * FROM cierres_tesoreria ORDER BY fecha_hora DESC LIMIT 1", [], (err, lastClosure) => {
+        const closureTime = lastClosure ? lastClosure.fecha_hora : '1970-01-01 00:00:00';
+        let baseSaldos = {};
+        if (lastClosure && lastClosure.saldos_json) {
+            try { baseSaldos = JSON.parse(lastClosure.saldos_json); } catch(e) {}
+        }
+
+        // 2. Calcular los saldos actuales (Igual que en app.get('/tesoreria'))
+        const sqlSaldos = `
+             SELECT b.id, b.nombre,
+                    (SELECT COALESCE(SUM(monto), 0) FROM remesas WHERE estado = 'Recibido' AND banco_id = b.id AND fecha_recepcion > ?) +
+                    (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo = 'Traslado (Efectivo)' AND banco_id = b.id AND fecha_hora > ?) -
+                    (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo IN ('Depósito a Banco', 'Envío a Tienda', 'Entrega Dueño', 'Pago Depósito Adelantado', 'Ajuste de Cuadre') AND banco_id = b.id AND fecha_hora > ?) as flujo
+             FROM bancos b
+        `;
+        db.all(sqlSaldos, [closureTime, closureTime, closureTime], (err, saldosFlujo) => {
+            db.get(`
+                SELECT 
+                   (SELECT COALESCE(SUM(monto), 0) FROM remesas WHERE estado = 'Recibido' AND banco_id IS NULL AND fecha_recepcion > ?) +
+                   (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo = 'Traslado (Efectivo)' AND banco_id IS NULL AND fecha_hora > ?) -
+                   (SELECT COALESCE(SUM(monto), 0) FROM tesoreria_log WHERE tipo IN ('Depósito a Banco', 'Envío a Tienda', 'Entrega Dueño', 'Pago Depósito Adelantado', 'Ajuste de Cuadre') AND banco_id IS NULL AND fecha_hora > ?) as flujoOtros
+            `, [closureTime, closureTime, closureTime], (err, rowFlujoOtros) => {
+                
+                const flowOtros = Number(rowFlujoOtros ? rowFlujoOtros.flujoOtros : 0) || 0;
+                const baseOtros = Number(baseSaldos['Otros'] || 0) || 0;
+
+                const saldosFinales = {};
+                (saldosFlujo || []).forEach(s => {
+                    const base = Number(baseSaldos[String(s.id)] || 0) || 0;
+                    saldosFinales[String(s.id)] = base + (Number(s.flujo || 0) || 0);
+                });
+                saldosFinales['Otros'] = baseOtros + flowOtros;
+
+                const saldosJSON = JSON.stringify(saldosFinales);
+
+                db.run("INSERT INTO cierres_tesoreria (fecha_hora, usuario_id, saldos_json, observaciones) VALUES (?, ?, ?, ?)",
+                    [now, req.session.user.id, saldosJSON, observaciones || 'Corte de Caja Central'], (err) => {
+                        if (err) {
+                            console.error("Error al realizar cierre de tesorería:", err);
+                            return res.status(500).send("Error al procesar el cierre");
+                        }
+                        res.redirect('/tesoreria?module=cierre&msg=cierre_ok');
+                    });
+            });
+        });
+    });
+});
+
 app.post('/tesoreria/recibir/:id', requireAdminOrContador, (req, res) => {
     const id = req.params.id;
     const now = getLocalTime();
