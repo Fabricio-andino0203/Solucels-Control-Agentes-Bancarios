@@ -468,25 +468,25 @@ app.get('/', requireAuth, (req, res) => {
                                                                     enTransito,
                                                                     filterFecha: fecha || null,
                                                                     referenciasTiendas
-                                                                });
                                                             });
                                                         });
                                                     });
+                                                });
+                                            });
                                         });
                                     });
                                 });
+                            });
+                        });
                     });
                 });
             });
         });
     });
-    });
-});
-});
 });
 
 // Configuración Saldos Iniciales
-        app.get('/config/iniciales', requireAdmin, (req, res) => {
+app.get('/config/iniciales', requireAdmin, (req, res) => {
             db.all("SELECT * FROM tiendas", [], (err, tiendas) => {
                 db.all("SELECT * FROM bancos", [], (err, bancos) => {
                     // Obtener las aperturas actualmente Abiertas
