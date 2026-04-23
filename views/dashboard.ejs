@@ -84,12 +84,14 @@
 
 
                         <!-- BALANCE NETO DE LA OPERACIÓN (LO QUE DEBE HABER EN EFECTIVO) -->
-                        <tr style="border-top: 2px solid var(--accent-blue);">
+                        <tr style="border-top: 2px solid var(--accent-blue); background: rgba(10, 132, 255, 0.05);">
                             <td class="amount-bold" style="color: #fff;">BALANCE LÍQUIDO OPERATIVO</td>
-                            <% globalBancario.forEach(function(gb) { %>
-                                <td class="amount-bold" style="color: #fff;">L <%= Math.abs(gb.total || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
+                            <% bancos.forEach(function(b) { 
+                                let totalCol = auditData.reduce((acc, row) => acc + (row.bancos[b.id] || 0), 0);
+                            %>
+                                <td class="amount-bold" style="color: #fff;">L <%= totalCol.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
                             <% }); %>
-                            <td class="amount-bold">L <%= Math.abs(auditData.reduce((acc, row) => acc + row.efectivo, 0)).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
+                            <td class="amount-bold" style="color: var(--accent-blue); font-size: 1.1rem;">L <%= auditData.reduce((acc, row) => acc + row.efectivo, 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
                         </tr>
                     </tbody>
                 </table>

@@ -33,6 +33,10 @@
                                     <form action="/tesoreria/recibir/<%= r.id %>" method="POST" style="display:inline;">
                                         <button type="submit" class="btn btn-success-premium">Confirmar</button>
                                     </form>
+                                    <form action="/tesoreria/remesa/eliminar/<%= r.id %>" method="POST" onsubmit="return confirm('¿Revertir esta remesa a la tienda? Se devolverá el efectivo a su caja física.')" style="display:inline;">
+                                        <input type="hidden" name="revertir" value="true">
+                                        <button type="submit" class="btn btn-warning-premium" style="padding: 0.6rem 1rem;" title="Revertir a tienda">Revertir</button>
+                                    </form>
                                     <form action="/tesoreria/remesa/eliminar/<%= r.id %>" method="POST" onsubmit="return confirm('¿ELIMINAR esta recepción? (No se devolverá el dinero a la tienda)')" style="display:inline;">
                                         <input type="hidden" name="revertir" value="false">
                                         <button type="submit" class="btn btn-icon-danger" title="Eliminar definitivamente">🗑️</button>
@@ -76,6 +80,10 @@
                                     <form action="/tesoreria/pagar-adelantado/<%= d.id %>" method="POST" style="display:inline;">
                                         <button type="submit" class="btn btn-primary-premium">Pagar</button>
                                     </form>
+                                    <form action="/tesoreria/deuda/eliminar/<%= d.id %>" method="POST" onsubmit="return confirm('¿Revertir esta deuda? Se eliminará la transacción asociada.')" style="display:inline;">
+                                        <input type="hidden" name="revertir" value="true">
+                                        <button type="submit" class="btn btn-warning-premium" style="padding: 0.6rem 1rem;">Revertir</button>
+                                    </form>
                                     <form action="/tesoreria/deuda/eliminar/<%= d.id %>" method="POST" onsubmit="return confirm('¿ELIMINAR esta deuda definitivamente?')" style="display:inline;">
                                         <input type="hidden" name="revertir" value="false">
                                         <button type="submit" class="btn btn-icon-danger" title="Eliminar definitivamente">🗑️</button>
@@ -92,3 +100,109 @@
         </div>
     </div>
 </div>
+
+<script>
+    // Configuración de Tiempo Real
+    let lastRemesasCount = <%= remesasPendientes.length %>;
+    let lastDeudasCount = <%= deudas.length %>;
+
+    async function checkTreasuryUpdates() {
+        try {
+            const response = await fetch('/api/tesoreria/recepciones');
+            const data = await response.json();
+            
+            // Actualizar tabla de Remesas si cambió el conteo o el ID del primer elemento
+            const remesasTable = document.querySelector('#module-recepciones .audit-table tbody');
+            const deudasTable = document.querySelectorAll('#module-recepciones .audit-table tbody')[1];
+
+            if (data.remesas.length !== lastRemesasCount || (data.remesas.length > 0 && data.remesas[0].id !== lastRemesasCountId)) {
+                updateRemesasTable(data.remesas, remesasTable);
+                lastRemesasCount = data.remesas.length;
+                if(data.remesas.length > 0) window.lastRemesasCountId = data.remesas[0].id;
+            }
+
+            if (data.deudas.length !== lastDeudasCount) {
+                updateDeudasTable(data.deudas, deudasTable);
+                lastDeudasCount = data.deudas.length;
+            }
+        } catch (err) {
+            console.error("Error polling treasury:", err);
+        }
+    }
+
+    function updateRemesasTable(remesas, tbody) {
+        if (remesas.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-table">No hay efectivo por recibir de tiendas.</td></tr>';
+            return;
+        }
+        
+        let html = '';
+        remesas.forEach(r => {
+            html += `
+                <tr>
+                    <td><strong>${r.tienda_nombre}</strong></td>
+                    <td><span class="badge-banco">${r.banco_nombre || 'Fondo General'}</span></td>
+                    <td class="amount-bold">L ${r.monto.toLocaleString('es-HN', {minimumFractionDigits: 2})}</td>
+                    <td><span class="text-muted">${r.fecha_envio}</span></td>
+                    <td>
+                        <div class="action-buttons">
+                            <form action="/tesoreria/recibir/${r.id}" method="POST" style="display:inline;">
+                                <button type="submit" class="btn btn-success-premium">Confirmar</button>
+                            </form>
+                            <form action="/tesoreria/remesa/eliminar/${r.id}" method="POST" onsubmit="return confirm('¿Revertir esta remesa?')" style="display:inline;">
+                                <input type="hidden" name="revertir" value="true">
+                                <button type="submit" class="btn btn-warning-premium" style="padding: 0.6rem 1rem;">Revertir</button>
+                            </form>
+                            <form action="/tesoreria/remesa/eliminar/${r.id}" method="POST" onsubmit="return confirm('¿ELIMINAR definitivamente?')" style="display:inline;">
+                                <input type="hidden" name="revertir" value="false">
+                                <button type="submit" class="btn btn-icon-danger">🗑️</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+        // Animación sutil de actualización
+        tbody.style.opacity = '0.5';
+        setTimeout(() => tbody.style.opacity = '1', 200);
+    }
+
+    function updateDeudasTable(deudas, tbody) {
+        if (deudas.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="empty-table">No hay deudas por depósitos adelantados.</td></tr>';
+            return;
+        }
+        
+        let html = '';
+        deudas.forEach(d => {
+            html += `
+                <tr>
+                    <td>${d.fecha_hora}</td>
+                    <td><span class="badge-banco">${d.banco_nombre}</span></td>
+                    <td class="amount-bold text-danger">L ${d.monto.toLocaleString('es-HN', {minimumFractionDigits: 2})}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <form action="/tesoreria/pagar-adelantado/${d.id}" method="POST" style="display:inline;">
+                                <button type="submit" class="btn btn-primary-premium">Pagar</button>
+                            </form>
+                            <form action="/tesoreria/deuda/eliminar/${d.id}" method="POST" onsubmit="return confirm('¿Revertir esta deuda?')" style="display:inline;">
+                                <input type="hidden" name="revertir" value="true">
+                                <button type="submit" class="btn btn-warning-premium" style="padding: 0.6rem 1rem;">Revertir</button>
+                            </form>
+                            <form action="/tesoreria/deuda/eliminar/${d.id}" method="POST" onsubmit="return confirm('¿ELIMINAR definitivamente?')" style="display:inline;">
+                                <input type="hidden" name="revertir" value="false">
+                                <button type="submit" class="btn btn-icon-danger">🗑️</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+    }
+
+    // Iniciar polling cada 10 segundos
+    window.lastRemesasCountId = <%= remesasPendientes.length > 0 ? remesasPendientes[0].id : 0 %>;
+    setInterval(checkTreasuryUpdates, 10000);
+</script>

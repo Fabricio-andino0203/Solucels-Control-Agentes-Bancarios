@@ -159,6 +159,7 @@
 .btn-danger-full { background: var(--danger-gradient); color: #fff; width: 100%; }
 .btn-purple-full { background: var(--purple-gradient); color: #fff; width: 100%; }
 .btn-warning-full { background: var(--warning-gradient); color: #fff; width: 100%; }
+.btn-warning-premium { background: var(--warning-gradient); color: #fff; }
 .btn-blue-full { background: var(--primary-gradient); color: #fff; width: 100%; }
 .btn-outline-blue-full { background: transparent; border: 2px solid var(--accent-blue); color: var(--accent-blue); width: 100%; }
 .btn-outline-blue-full:hover { background: var(--accent-blue); color: #fff; }
