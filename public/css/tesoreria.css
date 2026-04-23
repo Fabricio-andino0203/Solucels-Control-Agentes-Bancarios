@@ -211,3 +211,45 @@
 
 .filter-input-wrapper { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
 .text-xs { font-size: 0.75rem; }
+
+/* Switch Premium Styles (Reusable) */
+.switch-premium {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 26px;
+    flex-shrink: 0;
+}
+.switch-premium input { opacity: 0; width: 0; height: 0; }
+.slider-premium {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #333;
+    transition: .4s;
+    border-radius: 34px;
+}
+.slider-premium:before {
+    position: absolute;
+    content: "";
+    height: 18px; width: 18px;
+    left: 4px; bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+input:checked + .slider-premium { background-color: var(--accent-blue); }
+input:checked + .slider-premium:before { transform: translateX(24px); }
+
+.premium-switch-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 1.2rem;
+    margin: 0.5rem 0;
+}
+.premium-switch-info h4 { margin: 0; color: #fff; font-size: 0.95rem; font-weight: 700; }
+.premium-switch-info p { margin: 4px 0 0 0; font-size: 0.75rem; color: var(--text-muted); }

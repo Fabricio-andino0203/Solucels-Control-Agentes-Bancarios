@@ -1078,7 +1078,7 @@ app.post('/transaccion', requireAuth, (req, res) => {
     if (req.session.user.rol === 'Contador') {
         return res.status(403).send("Acceso denegado: El rol Contador es solo lectura.");
     }
-    const { tienda_id, banco_id, tipo, monto, referencia, es_adelantado } = req.body;
+    const { tienda_id, banco_id, tipo, monto, referencia } = req.body;
     const montoNum = parseFloat(monto);
     
     if (isNaN(montoNum) || montoNum <= 0) {
@@ -1096,13 +1096,7 @@ app.post('/transaccion', requireAuth, (req, res) => {
         let resEf = 0, resVi = 0;
 
         if (tipo === 'Depósito') {
-            if (es_adelantado === 'true') {
-                resEf = comEf; // Solo la comisión entra al físico, el monto es deuda
-                resVi = -montoNum + comVi;
-            } else {
-                resEf = montoNum + comEf; 
-                resVi = -montoNum + comVi;
-            }
+            resEf = montoNum + comEf; resVi = -montoNum + comVi;
         } else if (tipo === 'Retiro') {
             resEf = -montoNum + comEf; resVi = montoNum + comVi;
         } else if (tipo === 'Depósito Cuenta') {
@@ -1139,16 +1133,6 @@ app.post('/transaccion', requireAuth, (req, res) => {
                                     if (err) {
                                         console.error("Error al crear remesa:", err);
                                         return db.run('ROLLBACK', () => res.status(500).send("Error al registrar entrega: " + err.message));
-                                    }
-                                    db.run('COMMIT', (err) => res.redirect('/operar/' + tienda_id));
-                                });
-                        } else if (tipo === 'Depósito' && es_adelantado === 'true') {
-                            const obs = `Depósito Adelantado de ${tienda_id}: ${referencia || ''}`;
-                            db.run(`INSERT INTO depositos_adelantados (banco_id, monto, referencia, fecha_hora, estado) VALUES (?, ?, ?, ?, 'Pendiente')`, 
-                                [banco_id, montoNum, obs, now], (err) => {
-                                    if (err) {
-                                        console.error("Error al crear deuda adelantada:", err);
-                                        return db.run('ROLLBACK', () => res.status(500).send("Error al registrar deuda: " + err.message));
                                     }
                                     db.run('COMMIT', (err) => res.redirect('/operar/' + tienda_id));
                                 });
