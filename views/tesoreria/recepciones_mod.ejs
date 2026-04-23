@@ -33,8 +33,9 @@
                                     <form action="/tesoreria/recibir/<%= r.id %>" method="POST" style="display:inline;">
                                         <button type="submit" class="btn btn-success-premium">Confirmar</button>
                                     </form>
-                                    <form action="/tesoreria/remesa/eliminar/<%= r.id %>" method="POST" onsubmit="return confirm('¿Eliminar esta recepción pendiente?')" style="display:inline;">
-                                        <button type="submit" name="revertir" value="true" class="btn btn-danger-outline" title="Revertir a tienda">Revertir</button>
+                                    <form action="/tesoreria/remesa/eliminar/<%= r.id %>" method="POST" onsubmit="return confirm('¿ELIMINAR esta recepción? (No se devolverá el dinero a la tienda)')" style="display:inline;">
+                                        <input type="hidden" name="revertir" value="false">
+                                        <button type="submit" class="btn btn-icon-danger" title="Eliminar definitivamente">🗑️</button>
                                     </form>
                                 </div>
                             </td>
@@ -75,8 +76,9 @@
                                     <form action="/tesoreria/pagar-adelantado/<%= d.id %>" method="POST" style="display:inline;">
                                         <button type="submit" class="btn btn-primary-premium">Pagar</button>
                                     </form>
-                                    <form action="/tesoreria/deuda/eliminar/<%= d.id %>" method="POST" onsubmit="return confirm('¿Eliminar esta deuda?')" style="display:inline;">
-                                        <button type="submit" name="revertir" value="true" class="btn btn-danger-outline">Revertir</button>
+                                    <form action="/tesoreria/deuda/eliminar/<%= d.id %>" method="POST" onsubmit="return confirm('¿ELIMINAR esta deuda definitivamente?')" style="display:inline;">
+                                        <input type="hidden" name="revertir" value="false">
+                                        <button type="submit" class="btn btn-icon-danger" title="Eliminar definitivamente">🗑️</button>
                                     </form>
                                 </div>
                             </td>
