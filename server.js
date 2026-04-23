@@ -710,6 +710,24 @@ app.post('/tesoreria/recibir/:id', requireAdminOrContador, (req, res) => {
            [now, req.session.user.id, id], (err) => res.redirect('/tesoreria'));
 });
 
+app.post('/tesoreria/hard-reset', requireAdmin, (req, res) => {
+    db.serialize(() => {
+        db.run('BEGIN TRANSACTION');
+        db.run("DELETE FROM tesoreria_log");
+        db.run("DELETE FROM remesas WHERE estado = 'Recibido'");
+        db.run("DELETE FROM cierres_tesoreria");
+        db.run("DELETE FROM depositos_adelantados");
+        db.run("UPDATE saldos_bancarios SET saldo = 0");
+        db.run('COMMIT', (err) => {
+            if (err) {
+                console.error("Error en Hard Reset:", err);
+                return res.status(500).send("Error al reiniciar tesorería");
+            }
+            res.redirect('/tesoreria?msg=reset_ok');
+        });
+    });
+});
+
 app.post('/tesoreria/gasto', requireAdminOrContador, (req, res) => {
     const { monto, banco_id, categoria, descripcion } = req.body;
     const montoNum = parseFloat(monto);

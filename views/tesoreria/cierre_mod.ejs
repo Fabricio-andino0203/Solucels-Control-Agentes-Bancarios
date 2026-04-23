@@ -41,8 +41,18 @@
                 </div>
                 <button type="submit" class="btn btn-success-full btn-lg">Ejecutar Corte de Caja Central</button>
             </form>
+
+            <% if(user.rol === 'Admin') { %>
+                <div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px dashed rgba(255,59,48,0.3);">
+                    <h3 style="color: var(--danger); font-size: 1rem; margin-bottom: 1rem;">⚠️ Zona de Peligro (Solo Administrador)</h3>
+                    <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1.5rem;">Esta acción borrará TODOS los logs de tesorería, remesas recibidas, cierres anteriores y pondrá los saldos bancarios en CERO. Use esto solo si desea empezar de cero absoluto.</p>
+                    <form action="/tesoreria/hard-reset" method="POST" onsubmit="return confirm('🚨 ¡PELIGRO! 🚨\n\nEstás a punto de BORRAR TODO el historial de Tesorería y poner los saldos en CERO.\n\n¿Estás ABSOLUTAMENTE SEGURO de querer empezar de cero?')">
+                        <button type="submit" class="btn btn-danger-outline" style="width: 100%;">Borrar Todo y Empezar de Cero</button>
+                    </form>
+                </div>
+            <% } %>
         </div>
-    <% } else { %>
+<% } else { %>
         <div class="card-premium">
             <p class="text-center text-muted">No tiene permisos suficientes para realizar el corte de caja central.</p>
         </div>
