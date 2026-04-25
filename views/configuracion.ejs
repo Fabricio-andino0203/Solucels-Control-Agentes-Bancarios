@@ -177,23 +177,27 @@
                     <form action="/config/saldos" method="POST">
                         <input type="hidden" name="banco_id" value="<%= b.id %>">
                         
-                        <!-- Mostramos el saldo actual como información de lectura -->
-                        <div class="input-group-premium" style="opacity: 0.8;">
+                        <!-- Mostramos el saldo actual como editable -->
+                        <div class="input-group-premium">
                             <label>Saldo Virtual Actual (En Línea)</label>
-                            <div class="input-premium" style="background: rgba(255,255,255,0.05); color: var(--accent-blue);">
-                                L <%= (b.saldo || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %>
+                            <div style="position: relative;">
+                                <input type="text" name="saldo_actual" class="input-premium money-input" style="color: var(--accent-blue); border-color: rgba(10, 132, 255, 0.3);" value="<%= (b.saldo || 0).toFixed(2) %>" required>
+                                <button type="button" class="toggle-sign" onclick="toggleSign(this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 8px; width: 32px; height: 32px; cursor: pointer; font-weight: 800;">±</button>
                             </div>
                         </div>
 
                         <div class="input-group-premium">
                             <label>Saldo Inicial en Cuenta</label>
-                            <input type="text" name="saldo_inicial" class="input-premium money-input" value="<%= (b.saldo_inicial || 0).toFixed(2) %>" required>
-                            <small style="color: var(--text-muted); font-size: 0.7rem; display: block; mt-1;">Cambiar este valor ajustará el saldo actual automáticamente.</small>
+                            <div style="position: relative;">
+                                <input type="text" name="saldo_inicial" class="input-premium money-input" value="<%= (b.saldo_inicial || 0).toFixed(2) %>" required>
+                                <button type="button" class="toggle-sign" onclick="toggleSign(this)" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 8px; width: 32px; height: 32px; cursor: pointer; font-weight: 800;">±</button>
+                            </div>
+                            <small style="color: var(--text-muted); font-size: 0.7rem; display: block; margin-top: 0.5rem;">Establece los valores exactos para ambos campos.</small>
                         </div>
                         
                         <% if(user && user.rol === 'Admin') { %>
                             <button type="submit" class="btn-premium" style="background: <%= b.color %>; color: #fff;">
-                                💾 Ajustar Monto Inicial
+                                💾 Ajustar Montos
                             </button>
                         <% } else { %>
                             <button type="button" class="btn-premium" style="background: rgba(255,255,255,0.05); color: var(--text-muted); cursor: not-allowed;" disabled>

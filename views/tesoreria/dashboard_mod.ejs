@@ -34,9 +34,15 @@
             </div>
             <div class="balance-list">
                 <% saldosTotales.forEach(function(st) { %>
-                    <div class="balance-item">
-                        <span class="bank-name"><%= st.nombre %></span>
-                        <span class="amount">L <%= st.saldo.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></span>
+                    <div class="balance-item" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                        <div>
+                            <span class="bank-name"><%= st.nombre %></span>
+                            <span class="amount">L <%= st.saldo.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></span>
+                        </div>
+                        <div class="balance-actions" style="display:flex; gap:5px;">
+                            <button type="button" class="btn btn-sm" style="background: rgba(255, 60, 60, 0.2); color: #ff6b6b; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer;" onclick="openOpModal('gasto-fisico', '<%= st.id %>', '<%= st.nombre %>')" title="Registrar Gasto con este Efectivo">💸 Gasto</button>
+                            <button type="button" class="btn btn-sm" style="background: rgba(60, 140, 255, 0.2); color: #6ba4ff; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer;" onclick="openOpModal('traspaso-fisico', '<%= st.id %>', '<%= st.nombre %>')" title="Traspasar Efectivo a otra Bolsa">🔄 Traspaso</button>
+                        </div>
                     </div>
                 <% }); %>
             </div>

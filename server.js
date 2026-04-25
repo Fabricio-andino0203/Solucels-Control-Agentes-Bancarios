@@ -785,6 +785,43 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
         });
 
         // Transacciones Listado
+        
+        app.post('/tesoreria/gasto-efectivo', requireAdminOrContador, (req, res) => {
+            const { monto, banco_id, referencia } = req.body;
+            const montoNum = parseFloat((monto || '0').replace(/,/g, '')) || 0;
+            if (montoNum <= 0) return res.status(400).send("Monto inválido");
+            const bId = (banco_id && banco_id !== 'Otros') ? banco_id : null;
+            const now = getLocalTime();
+            
+            // Usamos Entrega Dueño temporalmente o ajustamos a Gasto Efectivo si modificamos las consultas SQL.
+            // Puesto que 'Entrega Dueño' resta del físico, lo usaremos pero con una referencia clara.
+            db.run("INSERT INTO tesoreria_log (tipo, monto, referencia, fecha_hora, banco_id) VALUES ('Entrega Dueño', ?, ?, ?, ?)", 
+                [montoNum, 'Gasto Efectivo: ' + (referencia || 'Generico'), now, bId], (err) => res.redirect('/tesoreria'));
+        });
+
+        app.post('/tesoreria/traspaso-fisico', requireAdminOrContador, (req, res) => {
+            const { monto, banco_origen, banco_destino, referencia } = req.body;
+            const montoNum = parseFloat((monto || '0').replace(/,/g, '')) || 0;
+            if (montoNum <= 0) return res.status(400).send("Monto inválido");
+            const bOrigen = (banco_origen && banco_origen !== 'Otros') ? banco_origen : null;
+            const bDestino = (banco_destino && banco_destino !== 'Otros') ? banco_destino : null;
+            const now = getLocalTime();
+
+            if (bOrigen == bDestino) return res.redirect('/tesoreria');
+
+            db.serialize(() => {
+                db.run('BEGIN TRANSACTION');
+                // Sale de la bolsa origen (Resta efectivo)
+                db.run("INSERT INTO tesoreria_log (tipo, monto, referencia, fecha_hora, banco_id) VALUES ('Entrega Dueño', ?, ?, ?, ?)", 
+                    [montoNum, 'Salida Traspaso: ' + (referencia || ''), now, bOrigen]);
+                
+                // Entra a la bolsa destino (Suma efectivo)
+                db.run("INSERT INTO tesoreria_log (tipo, monto, referencia, fecha_hora, banco_id) VALUES ('Traslado (Efectivo)', ?, ?, ?, ?)", 
+                    [montoNum, 'Entrada Traspaso: ' + (referencia || ''), now, bDestino]);
+                db.run('COMMIT', () => res.redirect('/tesoreria'));
+            });
+        });
+
         app.get('/transacciones', requireAuth, (req, res) => {
             const { tipo: tipoFiltro, tienda_id: tiendaFiltro } = req.query;
 
@@ -1111,18 +1148,27 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
         });
 
         app.post('/config/saldos', requireAdminOrContador, (req, res) => {
-            const { banco_id, saldo_inicial } = req.body;
+            const { banco_id, saldo_inicial, saldo_actual } = req.body;
             db.get("SELECT saldo_inicial, saldo FROM saldos_bancarios WHERE banco_id = ?", [banco_id], (err, row) => {
-                // Limpiamos TODO lo que no sea número, punto decimal o signo menos
-                const limpio = (saldo_inicial || "0").toString().replace(/[^0-9.-]+/g, "");
-                let nuevo_inicial = parseFloat(limpio) || 0;
-                let viejo_inicial = row ? (row.saldo_inicial || 0) : 0;
-                let diff = nuevo_inicial - viejo_inicial;
+                const limpioInicial = (saldo_inicial || "0").toString().replace(/[^0-9.-]+/g, "");
+                let nuevo_inicial = parseFloat(limpioInicial) || 0;
+                
+                const limpioActual = (saldo_actual || "").toString().replace(/[^0-9.-]+/g, "");
+                let nuevo_actual = parseFloat(limpioActual);
 
-                db.run("UPDATE saldos_bancarios SET saldo_inicial = ?, saldo = saldo + ?, actualizado_en = CURRENT_TIMESTAMP WHERE banco_id = ?",
-                    [nuevo_inicial, diff, banco_id], (err) => {
-                        res.redirect('/configuracion');
-                    });
+                if (isNaN(nuevo_actual)) {
+                    let viejo_inicial = row ? (row.saldo_inicial || 0) : 0;
+                    let diff = nuevo_inicial - viejo_inicial;
+                    db.run("UPDATE saldos_bancarios SET saldo_inicial = ?, saldo = saldo + ?, actualizado_en = CURRENT_TIMESTAMP WHERE banco_id = ?",
+                        [nuevo_inicial, diff, banco_id], (err) => {
+                            res.redirect('/configuracion');
+                        });
+                } else {
+                    db.run("UPDATE saldos_bancarios SET saldo_inicial = ?, saldo = ?, actualizado_en = CURRENT_TIMESTAMP WHERE banco_id = ?",
+                        [nuevo_inicial, nuevo_actual, banco_id], (err) => {
+                            res.redirect('/configuracion');
+                        });
+                }
             });
         });
 
