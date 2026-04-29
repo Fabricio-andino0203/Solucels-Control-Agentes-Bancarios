@@ -31,9 +31,9 @@
                         else bColor = '#333';
                     }
                 %>
-                    <div class="audit-stat-card" style="border-top: 4px solid <%= bColor %>;">
+                    <div class="audit-stat-card" style="border-top: 4px solid <%= bColor %>;" data-global-bank="<%= b.id %>">
                         <div class="audit-stat-label">Saldo en Cuenta: <%= b.nombre %></div>
-                        <div class="audit-stat-value" style="color: <%= bColor %>;">L <%= (b.saldo_cuenta || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></div>
+                        <div class="audit-stat-value" style="color: <%= bColor %>;" data-global-saldo="<%= b.id %>">L <%= (b.saldo_cuenta || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></div>
                         <div style="margin-top: 0.8rem; font-size: 0.8rem; color: var(--text-muted); font-weight: 500; display:flex; justify-content:space-between; border-top:1px solid rgba(255,255,255,0.05); padding-top:0.4rem;">
                             <span>En Tiendas: <strong style="color: #fff;">L <%= Math.abs(b.efectivo_tiendas || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></strong></span>
                             <span>En Tesorería: <strong style="color: var(--accent-blue);">L <%= Math.abs(b.efectivo_tesoreria || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></strong></span>
@@ -70,28 +70,28 @@
                             <th>Efectivo en Caja</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="auditTableBody">
                         <% auditData.forEach(function(row) { %>
-                            <tr>
+                            <tr data-store-id="<%= row.id %>">
                                 <td class="amount-bold text-blue-audit"><%= row.name %></td>
                                 <% bancos.forEach(function(b) { %>
-                                    <td class="amount-bold">L <%= Math.abs(row.bancos[b.id] || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
+                                    <td class="amount-bold" data-bank-id="<%= b.id %>">L <%= Math.abs(row.bancos[b.id] || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
                                 <% }); %>
-                                <td class="amount-bold">L <%= row.efectivo.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
+                                <td class="amount-bold" data-field="efectivo">L <%= row.efectivo.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
                             </tr>
                         <% }); %>
                         
 
 
                         <!-- BALANCE NETO DE LA OPERACIÓN (LO QUE DEBE HABER EN EFECTIVO) -->
-                        <tr style="border-top: 2px solid var(--accent-blue); background: rgba(10, 132, 255, 0.05);">
+                        <tr id="balanceRow" style="border-top: 2px solid var(--accent-blue); background: rgba(10, 132, 255, 0.05);">
                             <td class="amount-bold" style="color: #fff;">BALANCE LÍQUIDO OPERATIVO</td>
                             <% bancos.forEach(function(b) { 
                                 let totalCol = auditData.reduce((acc, row) => acc + (row.bancos[b.id] || 0), 0);
                             %>
-                                <td class="amount-bold" style="color: #fff;">L <%= totalCol.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
+                                <td class="amount-bold" style="color: #fff;" data-balance-bank="<%= b.id %>">L <%= totalCol.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
                             <% }); %>
-                            <td class="amount-bold" style="color: var(--accent-blue); font-size: 1.1rem;">L <%= auditData.reduce((acc, row) => acc + row.efectivo, 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
+                            <td class="amount-bold" style="color: var(--accent-blue); font-size: 1.1rem;" id="balanceTotal">L <%= auditData.reduce((acc, row) => acc + row.efectivo, 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
                         </tr>
                     </tbody>
                 </table>
@@ -209,6 +209,105 @@
                 </div>
             </div>
         <% } %>
-    </main>
+    <% if(user.rol !== 'Cajero') { %>
+    <script>
+    (function() {
+        const socket = io();
+        const fmt = (n) => 'L ' + Math.abs(n).toLocaleString('es-HN', { minimumFractionDigits: 2 });
+
+        function flash(el) {
+            if (!el) return;
+            el.style.transition = 'background 0.4s ease';
+            el.style.background = 'rgba(10, 132, 255, 0.25)';
+            setTimeout(() => { el.style.background = ''; }, 1200);
+        }
+
+        socket.on('dashboard:updated', () => {
+            fetch('/api/dashboard-data', { credentials: 'same-origin' })
+                .then(r => r.json())
+                .then(data => {
+                    // 1. Update Audit Table
+                    if (data.auditData) {
+                        data.auditData.forEach(row => {
+                            const tr = document.querySelector(`tr[data-store-id="${row.id}"]`);
+                            if (!tr) return;
+                            // Update bank cells
+                            tr.querySelectorAll('td[data-bank-id]').forEach(td => {
+                                const bid = td.getAttribute('data-bank-id');
+                                const val = row.bancos[bid] || 0;
+                                const newText = fmt(val);
+                                if (td.textContent.trim() !== newText.trim()) {
+                                    td.textContent = newText;
+                                    flash(td);
+                                }
+                            });
+                            // Update efectivo cell
+                            const efTd = tr.querySelector('td[data-field="efectivo"]');
+                            if (efTd) {
+                                const newText = fmt(row.efectivo);
+                                if (efTd.textContent.trim() !== newText.trim()) {
+                                    efTd.textContent = newText;
+                                    flash(efTd);
+                                }
+                            }
+                        });
+
+                        // Update BALANCE row
+                        const balanceRow = document.getElementById('balanceRow');
+                        if (balanceRow) {
+                            balanceRow.querySelectorAll('td[data-balance-bank]').forEach(td => {
+                                const bid = td.getAttribute('data-balance-bank');
+                                const total = data.auditData.reduce((a, r) => a + (r.bancos[bid] || 0), 0);
+                                const newText = fmt(total);
+                                if (td.textContent.trim() !== newText.trim()) {
+                                    td.textContent = newText;
+                                    flash(td);
+                                }
+                            });
+                            const balTotal = document.getElementById('balanceTotal');
+                            if (balTotal) {
+                                const gt = data.auditData.reduce((a, r) => a + r.efectivo, 0);
+                                const newText = fmt(gt);
+                                if (balTotal.textContent.trim() !== newText.trim()) {
+                                    balTotal.textContent = newText;
+                                    flash(balTotal);
+                                }
+                            }
+                        }
+                    }
+
+                    // 2. Update Global Stats Cards
+                    if (data.globalBancario) {
+                        data.globalBancario.forEach(b => {
+                            const saldoEl = document.querySelector(`[data-global-saldo="${b.id}"]`);
+                            if (saldoEl) {
+                                const newText = fmt(b.saldo_cuenta || 0);
+                                if (saldoEl.textContent.trim() !== newText.trim()) {
+                                    saldoEl.textContent = newText;
+                                    flash(saldoEl);
+                                }
+                            }
+                            const card = document.querySelector(`[data-global-bank="${b.id}"]`);
+                            if (card) {
+                                const spans = card.querySelectorAll('strong');
+                                if (spans[0]) spans[0].textContent = 'L ' + Math.abs(b.efectivo_tiendas || 0).toLocaleString('es-HN', { minimumFractionDigits: 2 });
+                                if (spans[1]) spans[1].textContent = 'L ' + Math.abs(b.efectivo_tesoreria || 0).toLocaleString('es-HN', { minimumFractionDigits: 2 });
+                            }
+                        });
+                    }
+                })
+                .catch(err => console.warn('Error actualizando dashboard:', err));
+        });
+
+        // Visual indicator of connection status
+        socket.on('connect', () => {
+            console.log('🔌 Dashboard conectado en tiempo real');
+        });
+        socket.on('disconnect', () => {
+            console.log('🔌 Dashboard desconectado — reintentando...');
+        });
+    })();
+    </script>
+    <% } %>
 </body>
 </html>

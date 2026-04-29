@@ -139,7 +139,7 @@
                         <% if(user.rol !== 'Cajero') { %>
                         <td style="text-align: right;">
                             <div style="display: flex; gap: 0.4rem; justify-content: flex-end;">
-                                <button class="btn-action btn-edit" onclick="openEditModal('<%= tx.id %>', '<%= Math.abs(tx.monto_efectivo) + Math.abs(tx.monto_banco) %>', '<%= tx.referencia %>')" title="Editar">✎</button>
+                                <button class="btn-action btn-edit" onclick="openEditModal('<%= tx.id %>', '<%= Math.abs(Math.abs(tx.monto_efectivo) - Math.abs(tx.comision_efectivo || 0)) %>', '<%= tx.referencia %>')" title="Editar">✎</button>
                                 <form action="/transacciones/eliminar/<%= tx.id %>" method="POST" style="display:inline;" onsubmit="return confirm('¿Está SEGURO de eliminar esta transacción? Los saldos se revertirán automáticamente.')">
                                     <button type="submit" class="btn-action btn-delete" title="Eliminar">🗑</button>
                                 </form>

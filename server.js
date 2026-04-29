@@ -1,8 +1,10 @@
 const express = require('express');
+const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const dotenv = require('dotenv');
 const session = require('express-session');
+const { Server } = require('socket.io');
 const db = require('./config/database');
 require('./models/init');
 const dbPath = db.dbPath;
@@ -10,6 +12,8 @@ const dbPath = db.dbPath;
 dotenv.config();
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
 const PORT = process.env.PORT || 8080;
 
 // Manejadores de errores globales para capturar crashes en Railway
@@ -281,7 +285,7 @@ app.get('/', requireAuth, (req, res) => {
                                                             const neto = txRow ? (txRow.neto_txn || 0) : 0;
                                                             const enviado = remesaRow ? (remesaRow.total_enviado || 0) : 0;
                                                             const inicial = parseFloat(inicialPorBanco[b.id] || 0);
-                                                            const totalB = Math.max(0, inicial + neto - enviado);
+                                                            const totalB = inicial + neto - enviado;
                                                             row.bancos[b.id] = totalB;
                                                             totalStore += totalB;
                                                         });
@@ -292,7 +296,7 @@ app.get('/', requireAuth, (req, res) => {
                                                         const inicialOtros = Math.max(0, (apertura ? apertura.saldo_inicial_efectivo : 0) - sumBancosIni);
                                                         const txOtros = (txPorTiendaBanco || []).find(r => r.tienda_id === t.id && r.banco_id === null);
                                                         const netoOtros = txOtros ? (txOtros.neto_txn || 0) : 0;
-                                                        const totalOtros = Math.max(0, inicialOtros + netoOtros - enviadoOtros);
+                                                        const totalOtros = inicialOtros + netoOtros - enviadoOtros;
                                                         if (isCerrada) row.efectivo = t.efectivo_actual || 0;
                                                         else row.efectivo = totalStore + totalOtros;
                                                         return row;
@@ -632,7 +636,7 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
             const id = req.params.id;
             const now = getLocalTime();
             db.run("UPDATE remesas SET estado = 'Recibido', fecha_recepcion = ?, usuario_recibe_id = ? WHERE id = ?",
-                [now, req.session.user.id, id], (err) => res.redirect('/tesoreria'));
+                [now, req.session.user.id, id], (err) => { io.emit('dashboard:updated'); res.redirect('/tesoreria'); });
         });
 
         app.post('/tesoreria/hard-reset', requireAdmin, (req, res) => {
@@ -669,7 +673,7 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
                 if (banco_id) {
                     db.run("UPDATE saldos_bancarios SET saldo = saldo - ?, actualizado_en = ? WHERE banco_id = ?", [montoNum, now, banco_id]);
                 }
-                db.run('COMMIT', () => res.redirect('/tesoreria'));
+                db.run('COMMIT', () => { io.emit('dashboard:updated'); res.redirect('/tesoreria'); });
             });
         });
 
@@ -705,7 +709,7 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
                 }
 
                 db.run("UPDATE saldos_bancarios SET saldo = saldo + ?, actualizado_en = ? WHERE banco_id = ?", [montoNum, now, banco_destino]);
-                db.run('COMMIT', () => res.redirect('/tesoreria'));
+                db.run('COMMIT', () => { io.emit('dashboard:updated'); res.redirect('/tesoreria'); });
             });
         });
 
@@ -734,6 +738,7 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
 
                 db.run('COMMIT', (err) => {
                     if (err) console.error("Error al enviar a tienda:", err);
+                    io.emit('dashboard:updated');
                     res.redirect('/tesoreria');
                 });
             });
@@ -753,7 +758,7 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
                         [dep.monto, dep.referencia || 'Pago de Depósito Pendiente', now, dep.banco_id]);
                     // 2. Marcar deuda como pagada
                     db.run("UPDATE depositos_adelantados SET estado = 'Pagado', fecha_pago = ? WHERE id = ?", [now, id]);
-                    db.run('COMMIT', () => res.redirect('/tesoreria'));
+                    db.run('COMMIT', () => { io.emit('dashboard:updated'); res.redirect('/tesoreria'); });
                 });
             });
         });
@@ -780,7 +785,7 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
                 db.run("INSERT INTO tesoreria_log (tipo, monto, referencia, fecha_hora, banco_id) VALUES (?, ?, ?, ?, ?)",
                     [tipoLog, montoNum, referencia || 'Traslado de Fondos', now, banco_id]);
 
-                db.run('COMMIT', () => res.redirect('/tesoreria'));
+                db.run('COMMIT', () => { io.emit('dashboard:updated'); res.redirect('/tesoreria'); });
             });
         });
 
@@ -818,7 +823,7 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
                 // Entra a la bolsa destino (Suma efectivo)
                 db.run("INSERT INTO tesoreria_log (tipo, monto, referencia, fecha_hora, banco_id) VALUES ('Traslado (Efectivo)', ?, ?, ?, ?)", 
                     [montoNum, 'Entrada Traspaso: ' + (referencia || ''), now, bDestino]);
-                db.run('COMMIT', () => res.redirect('/tesoreria'));
+                db.run('COMMIT', () => { io.emit('dashboard:updated'); res.redirect('/tesoreria'); });
             });
         });
 
@@ -913,6 +918,7 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
                 db.run(`UPDATE saldos_bancarios SET saldo = saldo + ?, actualizado_en = CURRENT_TIMESTAMP WHERE banco_id = ?`, [montoNum, banco_id]);
 
                 db.run('COMMIT', (err) => {
+                    io.emit('dashboard:updated');
                     res.redirect('/');
                 });
             });
@@ -1000,7 +1006,7 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
 
                 // Sincronizamos el efectivo de la tienda con la apertura
                 db.run("UPDATE tiendas SET efectivo_actual = ? WHERE id = ?", [montoEfNum, tienda_id]);
-                db.run('COMMIT', (err) => res.redirect('/operar/' + tienda_id));
+                db.run('COMMIT', (err) => { io.emit('dashboard:updated'); res.redirect('/operar/' + tienda_id); });
             });
         });
 
@@ -1114,10 +1120,10 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
                                                 console.error("Error al crear remesa:", err);
                                                 return db.run('ROLLBACK', () => res.status(500).send("Error al registrar entrega: " + err.message));
                                             }
-                                            db.run('COMMIT', (err) => res.redirect('/operar/' + tienda_id));
+                                            db.run('COMMIT', (err) => { io.emit('dashboard:updated'); res.redirect('/operar/' + tienda_id); });
                                         });
                                 } else {
-                                    db.run('COMMIT', (err) => res.redirect('/operar/' + tienda_id));
+                                    db.run('COMMIT', (err) => { io.emit('dashboard:updated'); res.redirect('/operar/' + tienda_id); });
                                 }
                             };
 
@@ -1387,6 +1393,7 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
 
                     db.run('COMMIT', (err) => {
                         if (err) return res.status(500).send("Error al procesar cierre");
+                        io.emit('dashboard:updated');
                         res.redirect('/cierres');
                     });
                 });
@@ -1416,7 +1423,7 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
                         // 4. Eliminar remesas enviadas a Tesorería que queden 'Pendientes' vinculadas al día de hoy para esta tienda
                         db.run("DELETE FROM remesas WHERE tienda_id = ? AND estado = 'Pendiente' AND fecha_envio LIKE ?", [cierre.tienda_id, today + '%']);
 
-                        db.run('COMMIT', () => res.redirect('/cierres'));
+                        db.run('COMMIT', () => { io.emit('dashboard:updated'); res.redirect('/cierres'); });
                     });
                 });
             });
@@ -1455,6 +1462,7 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
                     db.run("DELETE FROM transacciones WHERE id = ?", [id]);
                     db.run('COMMIT', (err) => {
                         if (err) return res.status(500).send("Error en la base de datos");
+                        io.emit('dashboard:updated');
                         res.redirect('/transacciones');
                     });
                 });
@@ -1509,7 +1517,7 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
                         db.run(`UPDATE transacciones SET monto_efectivo = ?, monto_banco = ?, comision_efectivo = ?, comision_banco = ?, referencia = ?, fecha_hora = ? WHERE id = ?`,
                             [resEf, resVi, comEf, comVi, referencia, now, id]);
 
-                        db.run('COMMIT', () => res.redirect('/transacciones'));
+                        db.run('COMMIT', () => { io.emit('dashboard:updated'); res.redirect('/transacciones'); });
                     });
                 });
             });
@@ -1580,6 +1588,108 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
         });
 
 
+
+        // ==========================================
+        // SOCKET.IO Y API DE DATOS EN TIEMPO REAL
+        // ==========================================
+        io.on('connection', (socket) => {
+            console.log('🔌 Cliente conectado al dashboard en tiempo real');
+            socket.on('disconnect', () => { });
+        });
+
+        app.get('/api/dashboard-data', requireAuth, (req, res) => {
+            db.all("SELECT * FROM tiendas", [], (err, tiendas) => {
+                db.all("SELECT * FROM bancos", [], (err, bancos) => {
+                    db.all("SELECT b.id, b.nombre, b.color, s.saldo FROM bancos b JOIN saldos_bancarios s ON b.id = s.banco_id", [], (err, saldosBancos) => {
+                        db.all("SELECT * FROM aperturas_caja WHERE id IN (SELECT MAX(id) FROM aperturas_caja GROUP BY tienda_id)", [], (err, aperturas) => {
+                            db.all("SELECT * FROM cierres_caja WHERE id IN (SELECT MAX(id) FROM cierres_caja GROUP BY tienda_id)", [], (err, cierres) => {
+                                const sqlRem = "SELECT r.tienda_id, r.banco_id, SUM(r.monto) as total_enviado FROM remesas r JOIN (SELECT tienda_id, MAX(fecha_hora) as ultima_apertura FROM aperturas_caja GROUP BY tienda_id) last_a ON r.tienda_id = last_a.tienda_id WHERE r.fecha_envio >= last_a.ultima_apertura GROUP BY r.tienda_id, r.banco_id";
+                                const sqlTx = "SELECT t.tienda_id, t.banco_id, SUM(t.monto_efectivo) as neto_txn FROM transacciones t JOIN (SELECT tienda_id, MAX(fecha_hora) as ultima_apertura FROM aperturas_caja GROUP BY tienda_id) last_a ON t.tienda_id = last_a.tienda_id WHERE t.fecha_hora >= last_a.ultima_apertura GROUP BY t.tienda_id, t.banco_id";
+                                db.all(sqlRem, [], (err, remesasPorTienda) => {
+                                    db.all(sqlTx, [], (err, txPorTiendaBanco) => {
+                                        const auditMatrix = tiendas.map(t => {
+                                            const ap = (aperturas || []).find(a => a.tienda_id === t.id);
+                                            const isCerrada = !ap || ap.estado === 'Cerrada';
+                                            let inicialPorBanco = {};
+                                            if (ap && ap.saldos_bancos_json) { try { inicialPorBanco = JSON.parse(ap.saldos_bancos_json); } catch(e){} }
+                                            let row = { id: t.id, name: t.nombre, efectivo: 0, bancos: {} };
+                                            let totalStore = 0;
+                                            bancos.forEach(b => {
+                                                const txR = (txPorTiendaBanco || []).find(r => r.tienda_id === t.id && r.banco_id === b.id);
+                                                const remR = (remesasPorTienda || []).find(r => r.tienda_id === t.id && parseInt(r.banco_id) === parseInt(b.id));
+                                                const neto = txR ? (txR.neto_txn || 0) : 0;
+                                                const enviado = remR ? (remR.total_enviado || 0) : 0;
+                                                const ini = parseFloat(inicialPorBanco[b.id] || 0);
+                                                const totalB = ini + neto - enviado;
+                                                row.bancos[b.id] = totalB;
+                                                totalStore += totalB;
+                                            });
+                                            const remOtros = (remesasPorTienda || []).find(r => r.tienda_id === t.id && r.banco_id === null);
+                                            const envOtros = remOtros ? (remOtros.total_enviado || 0) : 0;
+                                            let sumBI = 0; for (let bid in inicialPorBanco) sumBI += parseFloat(inicialPorBanco[bid] || 0);
+                                            const iniOtros = Math.max(0, (ap ? ap.saldo_inicial_efectivo : 0) - sumBI);
+                                            const txO = (txPorTiendaBanco || []).find(r => r.tienda_id === t.id && r.banco_id === null);
+                                            const netoO = txO ? (txO.neto_txn || 0) : 0;
+                                            const totalOtros = iniOtros + netoO - envOtros;
+                                            if (isCerrada) row.efectivo = t.efectivo_actual || 0;
+                                            else row.efectivo = totalStore + totalOtros;
+                                            return row;
+                                        });
+                                        db.get("SELECT * FROM cierres_tesoreria ORDER BY fecha_hora DESC LIMIT 1", [], (err, ltc) => {
+                                            const tesoTime = ltc ? ltc.fecha_hora : '1970-01-01 00:00:00';
+                                            let tesoBase = {}; if (ltc && ltc.saldos_json) { try { tesoBase = JSON.parse(ltc.saldos_json); } catch(e){} }
+                                            const sqlTF = "SELECT b.id, (SELECT COALESCE(SUM(monto),0) FROM remesas WHERE estado='Recibido' AND banco_id=b.id AND fecha_recepcion>?)+(SELECT COALESCE(SUM(monto),0) FROM tesoreria_log WHERE tipo='Traslado (Efectivo)' AND banco_id=b.id AND fecha_hora>?)-(SELECT COALESCE(SUM(monto),0) FROM tesoreria_log WHERE tipo IN ('Depósito a Banco','Envío a Tienda','Entrega Dueño','Pago Depósito Adelantado','Ajuste de Cuadre') AND banco_id=b.id AND fecha_hora>?) as flujo FROM bancos b";
+                                            db.all(sqlTF, [tesoTime, tesoTime, tesoTime], (err, tesoFlows) => {
+                                                db.get("SELECT (SELECT COALESCE(SUM(monto),0) FROM remesas WHERE estado='Recibido' AND banco_id IS NULL AND fecha_recepcion>?)+(SELECT COALESCE(SUM(monto),0) FROM tesoreria_log WHERE tipo='Traslado (Efectivo)' AND banco_id IS NULL AND fecha_hora>?)-(SELECT COALESCE(SUM(monto),0) FROM tesoreria_log WHERE tipo IN ('Depósito a Banco','Envío a Tienda','Entrega Dueño','Pago Depósito Adelantado','Ajuste de Cuadre') AND banco_id IS NULL AND fecha_hora>?) as flujoOtros", [tesoTime, tesoTime, tesoTime], (err, rOT) => {
+                                                    const fOT = rOT ? (rOT.flujoOtros || 0) : 0;
+                                                    const bOT = Number(tesoBase['Otros'] || 0);
+                                                    const tesoRow = { id: 'tesoreria', name: '📦 Tesorería Central', efectivo: 0, bancos: {} };
+                                                    let sumTR = bOT + fOT;
+                                                    bancos.forEach(b => {
+                                                        const fl = (tesoFlows || []).find(f => f.id === b.id);
+                                                        const mF = fl ? (fl.flujo || 0) : 0;
+                                                        const mB = Number(tesoBase[String(b.id)] || 0);
+                                                        tesoRow.bancos[b.id] = mB + mF;
+                                                        sumTR += mB + mF;
+                                                    });
+                                                    tesoRow.efectivo = sumTR;
+                                                    auditMatrix.push(tesoRow);
+                                                    const globalBancario = saldosBancos.map(b => {
+                                                        const tIS = auditMatrix.filter(r => r.id !== 'tesoreria').reduce((a, c) => a + (parseFloat(c.bancos[b.id]) || 0), 0);
+                                                        const tIT = tesoRow.bancos[b.id] || 0;
+                                                        return { nombre: b.nombre, id: b.id, color: b.color, total: tIS + tIT, saldo_cuenta: b.saldo, efectivo_tiendas: tIS, efectivo_tesoreria: tIT };
+                                                    });
+                                                    const referenciasTiendas = tiendas.map(t => {
+                                                        const refRow = auditMatrix.find(r => r.id === t.id);
+                                                        const ap2 = (aperturas || []).find(a => a.tienda_id === t.id);
+                                                        const ci = (cierres || []).find(c => c.tienda_id === t.id);
+                                                        const estado_caja = ap2 ? ap2.estado : 'Sin Abrir';
+                                                        let iPB = {}; if (ap2 && ap2.saldos_bancos_json) { try { iPB = JSON.parse(ap2.saldos_bancos_json); } catch(e){} }
+                                                        const bRef = bancos.map(b => {
+                                                            const txR = (txPorTiendaBanco || []).find(r => r.tienda_id === t.id && r.banco_id === b.id);
+                                                            const n = txR ? (txR.neto_txn || 0) : 0;
+                                                            const i = parseFloat(iPB[b.id] || 0);
+                                                            return { banco_id: b.id, banco_nombre: b.nombre, banco_color: b.color || '#555', inicial: i, neto: n, total_esperado: i + n };
+                                                        });
+                                                        let sBI = 0; for (let bid in iPB) sBI += parseFloat(iPB[bid] || 0);
+                                                        const iO = Math.max(0, (ap2 ? ap2.saldo_inicial_efectivo : 0) - sBI);
+                                                        const txO2 = (txPorTiendaBanco || []).find(r => r.tienda_id === t.id && r.banco_id === null);
+                                                        const nO = txO2 ? (txO2.neto_txn || 0) : 0;
+                                                        const listB = [...bRef, { banco_id: 'Otros', banco_nombre: 'Otros / Suelto', banco_color: '#888', inicial: iO, neto: nO, total_esperado: iO + nO }];
+                                                        return { tienda_id: t.id, tienda_nombre: t.nombre, efectivo_actual: t.efectivo_actual, estado_caja, cierre_info: estado_caja === 'Cerrada' ? ci : null, bancos: listB, totalEsperado: refRow ? refRow.efectivo : 0 };
+                                                    });
+                                                    res.json({ auditData: auditMatrix, globalBancario, referenciasTiendas, bancos: saldosBancos });
+                                                });
+                                            });
+                                        });
+                                    });
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+        });
 
         // ==========================================
         // MIGRACIÓN TEMPORAL DE BASE DE DATOS
@@ -1665,7 +1775,7 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
                     }
 
                     db.run("DELETE FROM tesoreria_log WHERE id = ?", [id]);
-                    db.run('COMMIT', () => res.redirect('/tesoreria'));
+                    db.run('COMMIT', () => { io.emit('dashboard:updated'); res.redirect('/tesoreria'); });
                 });
             });
         });
@@ -1695,7 +1805,7 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
                     }
 
                     db.run("DELETE FROM remesas WHERE id = ?", [id]);
-                    db.run('COMMIT', () => res.redirect('/tesoreria'));
+                    db.run('COMMIT', () => { io.emit('dashboard:updated'); res.redirect('/tesoreria'); });
                 });
             });
         });
@@ -1788,7 +1898,7 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
                     }
 
                     db.run("DELETE FROM depositos_adelantados WHERE id = ?", [id]);
-                    db.run('COMMIT', () => res.redirect('/tesoreria'));
+                    db.run('COMMIT', () => { io.emit('dashboard:updated'); res.redirect('/tesoreria'); });
                 });
             });
         });
@@ -1813,7 +1923,7 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
                 if (banco_id) {
                     db.run("UPDATE saldos_bancarios SET saldo = saldo - ?, actualizado_en = ? WHERE banco_id = ?", [montoNum, now, banco_id]);
                 }
-                db.run('COMMIT', () => res.redirect('/operar/' + tienda_id));
+                db.run('COMMIT', () => { io.emit('dashboard:updated'); res.redirect('/operar/' + tienda_id); });
             });
         });
 
@@ -1857,6 +1967,7 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
 
                 db.run('COMMIT', (err) => {
                     if (err) { console.error('Error en traspaso:', err); return res.status(500).send('Error al registrar traspaso'); }
+                    io.emit('dashboard:updated');
                     res.redirect('/operar/' + currTiendaId);
                 });
             });
@@ -1880,12 +1991,13 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
                 db.run(`UPDATE tiendas SET efectivo_actual = efectivo_actual + ? WHERE id = ?`, [montoNum, tienda_id]);
                 db.run('COMMIT', (err) => {
                     if (err) { console.error('Error en ingreso extra:', err); return res.status(500).send('Error al registrar ingreso'); }
+                    io.emit('dashboard:updated');
                     res.redirect('/operar/' + tienda_id);
                 });
             });
         });
 
-        app.listen(PORT, '0.0.0.0', () => {
+        server.listen(PORT, '0.0.0.0', () => {
             console.log(`Servidor de Solucels Control corriendo en el puerto ${PORT}`);
         });
 
