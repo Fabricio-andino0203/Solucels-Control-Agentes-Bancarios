@@ -42,8 +42,8 @@
                         <% bancos.forEach(function(b) { 
                              const isSelected = selectedBancoId && (b.id == selectedBancoId);
                         %>
-                            <div class="bank-option-card <%= isSelected ? 'active' : '' %>" 
-                                 onclick="updateBankSelection(this, '<%= b.id %>', '<%= (b.saldo_virtual || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %>', '<%= (fisicoPorBanco[b.id] || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %>')">
+                             <div class="bank-option-card <%= isSelected ? 'active' : '' %>" 
+                                  onclick="updateBankSelection(this, '<%= b.id %>', <%= b.saldo_virtual || 0 %>, <%= fisicoPorBanco[b.id] || 0 %>)">
                                 <div class="bank-dot" style="background: <%= b.color %>"></div>
                                 <div class="bank-name"><%= b.nombre %></div>
                             </div>
@@ -61,7 +61,8 @@
                         <div style="text-align: right;">
                             <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Efectivo Disponible:</span>
                             <div id="physicalBalance" style="font-weight: 800; font-size: 1.4rem; color: #fff;">
-                                L <%= selectedBancoId ? (fisicoPorBanco[selectedBancoId] || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) : '0.00' %>
+                                <% const efDisp = selectedBancoId ? (fisicoPorBanco[selectedBancoId] || 0) : 0; %>
+                                <span style="color: <%= efDisp < 0 ? '#ff453a' : '#fff' %>"><%= efDisp < 0 ? '-' : '' %>L <%= Math.abs(efDisp).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></span>
                             </div>
                         </div>
                     </div>
@@ -278,7 +279,8 @@
                 <h2 style="color:#E3A000; margin:0; font-size:1.4rem;">🔒 Corte de Caja Oficial</h2>
                 <p style="margin:0.2rem 0 0 0; font-size:0.85rem; color:var(--text-muted);">Realiza el arqueo y cierre de la caja declarando el físico y la entrega al contador.</p>
                 <div style="margin-top:0.5rem; font-size: 0.9rem; color: #fff;">
-                    Sistema espera: <strong style="color:var(--accent-blue);">L <%= tienda ? Math.abs(tienda.efectivo_actual).toLocaleString('es-HN',{minimumFractionDigits:2}) : '0.00' %></strong> en caja
+                    <% const efCaja = tienda ? tienda.efectivo_actual : 0; %>
+                    Sistema espera: <strong style="color:<%= efCaja < 0 ? '#ff453a' : 'var(--accent-blue)' %>;"><%= efCaja < 0 ? '-' : '' %>L <%= Math.abs(efCaja).toLocaleString('es-HN',{minimumFractionDigits:2}) %></strong> en caja
                 </div>
             </div>
             
@@ -364,8 +366,15 @@
             document.querySelectorAll('.bank-option-card').forEach(p => p.classList.remove('active'));
             element.classList.add('active');
             document.getElementById('bancoIdInput').value = bancoId;
-            document.getElementById('virtualBalance').innerText = 'L ' + virtualBal;
-            document.getElementById('physicalBalance').innerText = 'L ' + fisicoBal;
+            
+            const fmt = (n) => (n < 0 ? '-' : '') + 'L ' + Math.abs(n).toLocaleString('es-HN', { minimumFractionDigits: 2 });
+            
+            const vEl = document.getElementById('virtualBalance');
+            vEl.innerText = fmt(virtualBal);
+            vEl.style.color = virtualBal < 0 ? '#ff453a' : 'var(--accent-blue)';
+            
+            const pEl = document.getElementById('physicalBalance');
+            pEl.innerHTML = `<span style="color: ${fisicoBal < 0 ? '#ff453a' : '#fff'}">${fmt(fisicoBal)}</span>`;
         }
 
         function selectOp(element) {
@@ -467,7 +476,9 @@
         document.getElementById('traspOrigenSel').addEventListener('change', function() {
             const opt = this.options[this.selectedIndex];
             const fisico = parseFloat(opt.getAttribute('data-fisico') || '0');
-            document.getElementById('traspOrigenDisponible').textContent = 'L ' + fisico.toLocaleString('es-HN', { minimumFractionDigits: 2 });
+            const el = document.getElementById('traspOrigenDisponible');
+            el.textContent = (fisico < 0 ? '-' : '') + 'L ' + Math.abs(fisico).toLocaleString('es-HN', { minimumFractionDigits: 2 });
+            el.style.color = fisico < 0 ? '#ff453a' : '#fff';
         });
 
         // Cerrar modales al hacer click fuera
@@ -479,7 +490,7 @@
 
 
         // LOGICA DE CIERRE DE CAJA
-        const saldoCajaEsperado = <%= tienda ? Math.abs(tienda.efectivo_actual) : 0 %>;
+        const saldoCajaEsperado = <%= tienda ? tienda.efectivo_actual : 0 %>;
         function getModalVal(el) { 
             if (!el || !el.value) return 0;
             // Limpieza estricta: quitamos comas y todo lo que no sea dígito o punto

@@ -35,8 +35,8 @@
                         <div class="audit-stat-label">Saldo en Cuenta: <%= b.nombre %></div>
                         <div class="audit-stat-value" style="color: <%= bColor %>;" data-global-saldo="<%= b.id %>">L <%= (b.saldo_cuenta || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></div>
                         <div style="margin-top: 0.8rem; font-size: 0.8rem; color: var(--text-muted); font-weight: 500; display:flex; justify-content:space-between; border-top:1px solid rgba(255,255,255,0.05); padding-top:0.4rem;">
-                            <span>En Tiendas: <strong style="color: #fff;">L <%= Math.abs(b.efectivo_tiendas || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></strong></span>
-                            <span>En Tesorería: <strong style="color: var(--accent-blue);">L <%= Math.abs(b.efectivo_tesoreria || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></strong></span>
+                            <span>En Tiendas: <strong style="color: <%= (b.efectivo_tiendas || 0) < 0 ? '#ff453a' : '#fff' %>;"><%= (b.efectivo_tiendas || 0) < 0 ? '-' : '' %>L <%= Math.abs(b.efectivo_tiendas || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></strong></span>
+                            <span>En Tesorería: <strong style="color: <%= (b.efectivo_tesoreria || 0) < 0 ? '#ff453a' : 'var(--accent-blue)' %>;"><%= (b.efectivo_tesoreria || 0) < 0 ? '-' : '' %>L <%= Math.abs(b.efectivo_tesoreria || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></strong></span>
                         </div>
                     </div>
                 <% }); %>
@@ -75,9 +75,9 @@
                             <tr data-store-id="<%= row.id %>">
                                 <td class="amount-bold text-blue-audit"><%= row.name %></td>
                                 <% bancos.forEach(function(b) { %>
-                                    <td class="amount-bold" data-bank-id="<%= b.id %>">L <%= Math.abs(row.bancos[b.id] || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
+                                    <td class="amount-bold" data-bank-id="<%= b.id %>" style="color: <%= (row.bancos[b.id] || 0) < 0 ? '#ff453a' : '' %>"><%= (row.bancos[b.id] || 0) < 0 ? '-' : '' %>L <%= Math.abs(row.bancos[b.id] || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
                                 <% }); %>
-                                <td class="amount-bold" data-field="efectivo">L <%= row.efectivo.toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
+                                <td class="amount-bold" data-field="efectivo" style="color: <%= row.efectivo < 0 ? '#ff453a' : '' %>"><%= row.efectivo < 0 ? '-' : '' %>L <%= Math.abs(row.efectivo).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></td>
                             </tr>
                         <% }); %>
                         
@@ -103,7 +103,7 @@
                 <div style="margin-bottom: 1.25rem; font-weight: 700; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px;">📊 Referencia del Sistema por Tienda</div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem;">
                     <% referenciasTiendas.forEach(function(ref) { %>
-                    <div style="background: var(--bg-card); border-radius: 14px; border: 1px solid rgba(255,255,255,0.06); overflow: hidden;">
+                    <div data-ref-store="<%= ref.tienda_id %>" style="background: var(--bg-card); border-radius: 14px; border: 1px solid rgba(255,255,255,0.06); overflow: hidden;">
                         <div style="padding: 0.85rem 1.1rem; background: rgba(10,132,255,0.07); border-bottom: 1px solid rgba(10,132,255,0.15); display: flex; justify-content: space-between; align-items: center;">
                             <div style="display: flex; align-items: center; gap: 0.5rem;">
                                 <span style="font-size: 0.9rem; font-weight: 800; color: var(--accent-blue);"><%= ref.tienda_nombre %></span>
@@ -119,25 +119,25 @@
                                     <span style="font-size: 0.65rem; background: rgba(142,142,147,0.2); color: #8e8e93; padding: 2px 6px; border-radius: 4px; font-weight: 700; letter-spacing: 0.5px;">⚫ SIN ABRIR</span>
                                 <% } %>
                             </div>
-                            <span style="font-size: 0.75rem; color: var(--text-muted);">Actual: <strong style="color:#fff;">L <%= (ref.efectivo_actual||0).toLocaleString('es-HN',{minimumFractionDigits:2}) %></strong></span>
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">Actual: <strong data-ref-actual="<%= ref.tienda_id %>" style="color:<%= (ref.efectivo_actual||0) < 0 ? '#ff453a' : '#fff' %>;"><%= (ref.efectivo_actual||0) < 0 ? '-' : '' %>L <%= Math.abs(ref.efectivo_actual||0).toLocaleString('es-HN',{minimumFractionDigits:2}) %></strong></span>
                         </div>
                         <% if (ref.estado_caja === 'Abierta') { %>
                         <div style="padding: 0.85rem 1.1rem;">
                             <div style="font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.6rem;">Inicial + Operaciones del Día</div>
                             <% ref.bancos.forEach(function(b) { %>
-                            <% if(b.total_esperado > 0 || b.inicial > 0) { %>
-                            <div style="display:flex; justify-content:space-between; align-items:center; padding:0.45rem 0.7rem; margin-bottom:0.3rem; border-radius:7px; background:rgba(255,255,255,0.03); border-left:3px solid <%= b.banco_color %>;">
+                            <% if(b.total_esperado !== 0 || b.inicial !== 0) { %>
+                            <div data-ref-bank-row="<%= ref.tienda_id %>-<%= b.banco_id %>" style="display:flex; justify-content:space-between; align-items:center; padding:0.45rem 0.7rem; margin-bottom:0.3rem; border-radius:7px; background:rgba(255,255,255,0.03); border-left:3px solid <%= b.banco_color %>;">
                                 <div>
                                     <span style="font-size:0.8rem; color:<%= b.banco_color %>; font-weight:600; display:block;"><%= b.banco_nombre %></span>
-                                    <span style="font-size:0.68rem; color:var(--text-muted);">Ini: L <%= b.inicial.toLocaleString('es-HN',{minimumFractionDigits:2}) %> &middot; Ops: <span style="color:<%= b.neto >= 0 ? '#34C759' : '#FF453A' %>"><%= b.neto >= 0 ? '+' : '' %><%= b.neto.toLocaleString('es-HN',{minimumFractionDigits:2}) %></span></span>
+                                    <span data-ref-detail="<%= ref.tienda_id %>-<%= b.banco_id %>" style="font-size:0.68rem; color:var(--text-muted);">Ini: L <%= b.inicial.toLocaleString('es-HN',{minimumFractionDigits:2}) %> &middot; Ops: <span style="color:<%= b.neto >= 0 ? '#34C759' : '#FF453A' %>"><%= b.neto >= 0 ? '+' : '' %><%= b.neto.toLocaleString('es-HN',{minimumFractionDigits:2}) %></span></span>
                                 </div>
-                                <span style="font-size:0.9rem; font-weight:800;">L <%= b.total_esperado.toLocaleString('es-HN',{minimumFractionDigits:2}) %></span>
+                                <span data-ref-total="<%= ref.tienda_id %>-<%= b.banco_id %>" style="font-size:0.9rem; font-weight:800; color:<%= b.total_esperado < 0 ? '#ff453a' : '' %>"><%= b.total_esperado < 0 ? '-' : '' %>L <%= Math.abs(b.total_esperado).toLocaleString('es-HN',{minimumFractionDigits:2}) %></span>
                             </div>
                             <% } %>
                             <% }); %>
                             <div style="display:flex; justify-content:space-between; padding:0.55rem 0.7rem; border-radius:7px; background:rgba(10,132,255,0.08); border:1px solid rgba(10,132,255,0.2); margin-top:0.5rem;">
                                 <span style="font-size:0.82rem; font-weight:800; color:var(--accent-blue);">TOTAL ESPERADO</span>
-                                <span style="font-size:0.95rem; font-weight:900; color:var(--accent-blue);">L <%= ref.totalEsperado.toLocaleString('es-HN',{minimumFractionDigits:2}) %></span>
+                                <span data-ref-expected="<%= ref.tienda_id %>" style="font-size:0.95rem; font-weight:900; color:<%= ref.totalEsperado < 0 ? '#ff453a' : 'var(--accent-blue)' %>;"><%= ref.totalEsperado < 0 ? '-' : '' %>L <%= Math.abs(ref.totalEsperado).toLocaleString('es-HN',{minimumFractionDigits:2}) %></span>
                             </div>
                         </div>
                         <% } else if (ref.estado_caja === 'Cerrada') { %>
@@ -173,7 +173,7 @@
                         </div>
                         <div style="background: rgba(10, 132, 255, 0.1); padding: 1.25rem; border-radius: 14px;">
                             <div style="color: var(--accent-blue); font-size: 0.75rem; font-weight: 700; margin-bottom: 0.4rem; text-transform: uppercase;">Efectivo Actual</div>
-                            <div style="font-size: 1.1rem; font-weight: 800;">L <%= (stores[0].cash || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></div>
+                            <div style="font-size: 1.1rem; font-weight: 800; color: <%= (stores[0].cash || 0) < 0 ? '#ff453a' : '' %>"><%= (stores[0].cash || 0) < 0 ? '-' : '' %>L <%= Math.abs(stores[0].cash || 0).toLocaleString('es-HN', {minimumFractionDigits: 2}) %></div>
                         </div>
                     </div>
 
@@ -213,13 +213,20 @@
     <script>
     (function() {
         const socket = io();
-        const fmt = (n) => 'L ' + Math.abs(n).toLocaleString('es-HN', { minimumFractionDigits: 2 });
+        // Formatea números mostrando signo negativo y color rojo
+        const fmt = (n) => (n < 0 ? '-' : '') + 'L ' + Math.abs(n).toLocaleString('es-HN', { minimumFractionDigits: 2 });
+        const fmtOps = (n) => (n >= 0 ? '+' : '') + n.toLocaleString('es-HN', { minimumFractionDigits: 2 });
 
         function flash(el) {
             if (!el) return;
             el.style.transition = 'background 0.4s ease';
             el.style.background = 'rgba(10, 132, 255, 0.25)';
             setTimeout(() => { el.style.background = ''; }, 1200);
+        }
+
+        function applyColor(el, val) {
+            if (!el) return;
+            el.style.color = val < 0 ? '#ff453a' : '';
         }
 
         socket.on('dashboard:updated', () => {
@@ -231,22 +238,22 @@
                         data.auditData.forEach(row => {
                             const tr = document.querySelector(`tr[data-store-id="${row.id}"]`);
                             if (!tr) return;
-                            // Update bank cells
                             tr.querySelectorAll('td[data-bank-id]').forEach(td => {
                                 const bid = td.getAttribute('data-bank-id');
                                 const val = row.bancos[bid] || 0;
                                 const newText = fmt(val);
                                 if (td.textContent.trim() !== newText.trim()) {
                                     td.textContent = newText;
+                                    applyColor(td, val);
                                     flash(td);
                                 }
                             });
-                            // Update efectivo cell
                             const efTd = tr.querySelector('td[data-field="efectivo"]');
                             if (efTd) {
                                 const newText = fmt(row.efectivo);
                                 if (efTd.textContent.trim() !== newText.trim()) {
                                     efTd.textContent = newText;
+                                    applyColor(efTd, row.efectivo);
                                     flash(efTd);
                                 }
                             }
@@ -270,6 +277,7 @@
                                 const newText = fmt(gt);
                                 if (balTotal.textContent.trim() !== newText.trim()) {
                                     balTotal.textContent = newText;
+                                    applyColor(balTotal, gt);
                                     flash(balTotal);
                                 }
                             }
@@ -290,8 +298,53 @@
                             const card = document.querySelector(`[data-global-bank="${b.id}"]`);
                             if (card) {
                                 const spans = card.querySelectorAll('strong');
-                                if (spans[0]) spans[0].textContent = 'L ' + Math.abs(b.efectivo_tiendas || 0).toLocaleString('es-HN', { minimumFractionDigits: 2 });
-                                if (spans[1]) spans[1].textContent = 'L ' + Math.abs(b.efectivo_tesoreria || 0).toLocaleString('es-HN', { minimumFractionDigits: 2 });
+                                if (spans[0]) spans[0].textContent = fmt(b.efectivo_tiendas || 0);
+                                if (spans[1]) spans[1].textContent = fmt(b.efectivo_tesoreria || 0);
+                            }
+                        });
+                    }
+
+                    // 3. Update Reference Cards (por tienda)
+                    if (data.referenciasTiendas) {
+                        data.referenciasTiendas.forEach(ref => {
+                            // Update "Actual" value
+                            const actualEl = document.querySelector(`[data-ref-actual="${ref.tienda_id}"]`);
+                            if (actualEl) {
+                                const newText = fmt(ref.efectivo_actual || 0);
+                                if (actualEl.textContent.trim() !== newText.trim()) {
+                                    actualEl.textContent = newText;
+                                    actualEl.style.color = (ref.efectivo_actual || 0) < 0 ? '#ff453a' : '#fff';
+                                    flash(actualEl);
+                                }
+                            }
+                            // Update bank details and totals
+                            if (ref.bancos) {
+                                ref.bancos.forEach(b => {
+                                    const key = ref.tienda_id + '-' + b.banco_id;
+                                    // Update detail text (Ini + Ops)
+                                    const detailEl = document.querySelector(`[data-ref-detail="${key}"]`);
+                                    if (detailEl) {
+                                        const opsColor = b.neto >= 0 ? '#34C759' : '#FF453A';
+                                        detailEl.innerHTML = `Ini: L ${b.inicial.toLocaleString('es-HN',{minimumFractionDigits:2})} &middot; Ops: <span style="color:${opsColor}">${fmtOps(b.neto)}</span>`;
+                                    }
+                                    // Update total esperado per bank
+                                    const totalEl = document.querySelector(`[data-ref-total="${key}"]`);
+                                    if (totalEl) {
+                                        totalEl.textContent = fmt(b.total_esperado);
+                                        totalEl.style.color = b.total_esperado < 0 ? '#ff453a' : '';
+                                        flash(totalEl);
+                                    }
+                                });
+                            }
+                            // Update TOTAL ESPERADO
+                            const expectedEl = document.querySelector(`[data-ref-expected="${ref.tienda_id}"]`);
+                            if (expectedEl) {
+                                const newText = fmt(ref.totalEsperado);
+                                if (expectedEl.textContent.trim() !== newText.trim()) {
+                                    expectedEl.textContent = newText;
+                                    expectedEl.style.color = ref.totalEsperado < 0 ? '#ff453a' : 'var(--accent-blue)';
+                                    flash(expectedEl);
+                                }
                             }
                         });
                     }
@@ -299,7 +352,6 @@
                 .catch(err => console.warn('Error actualizando dashboard:', err));
         });
 
-        // Visual indicator of connection status
         socket.on('connect', () => {
             console.log('🔌 Dashboard conectado en tiempo real');
         });
