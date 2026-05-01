@@ -359,16 +359,22 @@ app.get('/', requireAuth, (req, res) => {
                                                                     }
                                                                     const bancosRef = bancos.map(b => {
                                                                         const txRow = (txPorTiendaBanco || []).find(r => r.tienda_id === t.id && r.banco_id === b.id);
+                                                                        const remesaRow = (remesasPorTienda || []).find(r => r.tienda_id === t.id && (parseInt(r.banco_id) === parseInt(b.id)));
                                                                         const neto = txRow ? (txRow.neto_txn || 0) : 0;
+                                                                        const enviado = remesaRow ? (remesaRow.total_enviado || 0) : 0;
                                                                         const inicial = parseFloat(inicialPorBanco[b.id] || 0);
-                                                                        return { banco_id: b.id, banco_nombre: b.nombre, banco_color: b.color || '#555', inicial, neto, total_esperado: inicial + neto };
+                                                                        const netoReal = neto - enviado;
+                                                                        return { banco_id: b.id, banco_nombre: b.nombre, banco_color: b.color || '#555', inicial, neto: netoReal, total_esperado: inicial + netoReal };
                                                                     });
                                                                     let sumBancosIni = 0;
                                                                     for (let bid in inicialPorBanco) sumBancosIni += parseFloat(inicialPorBanco[bid] || 0);
                                                                     const inicialOtros = Math.max(0, (apertura ? apertura.saldo_inicial_efectivo : 0) - sumBancosIni);
                                                                     const txOtros = (txPorTiendaBanco || []).find(r => r.tienda_id === t.id && r.banco_id === null);
+                                                                    const remesaOtros = (remesasPorTienda || []).find(r => r.tienda_id === t.id && r.banco_id === null);
                                                                     const netoOtros = txOtros ? (txOtros.neto_txn || 0) : 0;
-                                                                    const listB = [...bancosRef, { banco_id: 'Otros', banco_nombre: 'Otros / Suelto', banco_color: '#888', inicial: inicialOtros, neto: netoOtros, total_esperado: inicialOtros + netoOtros }];
+                                                                    const enviadoOtros = remesaOtros ? (remesaOtros.total_enviado || 0) : 0;
+                                                                    const netoOtrosReal = netoOtros - enviadoOtros;
+                                                                    const listB = [...bancosRef, { banco_id: 'Otros', banco_nombre: 'Otros / Suelto', banco_color: '#888', inicial: inicialOtros, neto: netoOtrosReal, total_esperado: inicialOtros + netoOtrosReal }];
                                                                     return { tienda_id: t.id, tienda_nombre: t.nombre, efectivo_actual: t.efectivo_actual, estado_caja: estado_caja, cierre_info: estado_caja === 'Cerrada' ? cierre : null, bancos: listB, totalEsperado: refRow ? refRow.efectivo : 0 };
                                                                 });
 
