@@ -1050,16 +1050,26 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
                     GROUP BY banco_id
                 `, [tiendaId, fechaApertura], (err, txns) => {
 
+                          db.all(`
+                    SELECT banco_id, SUM(monto) as total_enviado
+                    FROM remesas
+                    WHERE tienda_id = ? AND fecha_envio >= COALESCE(?, '2000-01-01')
+                    GROUP BY banco_id
+                `, [tiendaId, fechaApertura], (err, remesasOp) => {
+
                             const fisicoPorBanco = {};
                             bancos.forEach(b => {
                                 const inicial = parseFloat(inicialPorBanco[b.id] || 0);
                                 const txRow = (txns || []).find(t => t.banco_id === b.id);
+                                const remRow = (remesasOp || []).find(r => r.banco_id !== null && parseInt(r.banco_id) === parseInt(b.id));
                                 const neto = txRow ? (txRow.neto_txn || 0) : 0;
-                                fisicoPorBanco[b.id] = Math.max(0, inicial + neto);
+                                const enviado = remRow ? (remRow.total_enviado || 0) : 0;
+                                fisicoPorBanco[b.id] = inicial + neto - enviado;
                             });
                             db.all("SELECT * FROM tiendas ORDER BY nombre ASC", [], (err, todas_tiendas) => {
                                 res.render('operar', { tienda, bancos, selectedBancoId: bancoId, fisicoPorBanco, todas_tiendas: todas_tiendas || [] });
                             });
+                          });
                         });
                     });
                 });
@@ -1673,15 +1683,21 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
                                                         let iPB = {}; if (ap2 && ap2.saldos_bancos_json) { try { iPB = JSON.parse(ap2.saldos_bancos_json); } catch(e){} }
                                                         const bRef = bancos.map(b => {
                                                             const txR = (txPorTiendaBanco || []).find(r => r.tienda_id === t.id && r.banco_id === b.id);
+                                                            const remR = (remesasPorTienda || []).find(r => r.tienda_id === t.id && parseInt(r.banco_id) === parseInt(b.id));
                                                             const n = txR ? (txR.neto_txn || 0) : 0;
+                                                            const env = remR ? (remR.total_enviado || 0) : 0;
+                                                            const nReal = n - env;
                                                             const i = parseFloat(iPB[b.id] || 0);
-                                                            return { banco_id: b.id, banco_nombre: b.nombre, banco_color: b.color || '#555', inicial: i, neto: n, total_esperado: i + n };
+                                                            return { banco_id: b.id, banco_nombre: b.nombre, banco_color: b.color || '#555', inicial: i, neto: nReal, total_esperado: i + nReal };
                                                         });
                                                         let sBI = 0; for (let bid in iPB) sBI += parseFloat(iPB[bid] || 0);
                                                         const iO = Math.max(0, (ap2 ? ap2.saldo_inicial_efectivo : 0) - sBI);
                                                         const txO2 = (txPorTiendaBanco || []).find(r => r.tienda_id === t.id && r.banco_id === null);
+                                                        const remO2 = (remesasPorTienda || []).find(r => r.tienda_id === t.id && r.banco_id === null);
                                                         const nO = txO2 ? (txO2.neto_txn || 0) : 0;
-                                                        const listB = [...bRef, { banco_id: 'Otros', banco_nombre: 'Otros / Suelto', banco_color: '#888', inicial: iO, neto: nO, total_esperado: iO + nO }];
+                                                        const envO = remO2 ? (remO2.total_enviado || 0) : 0;
+                                                        const nOReal = nO - envO;
+                                                        const listB = [...bRef, { banco_id: 'Otros', banco_nombre: 'Otros / Suelto', banco_color: '#888', inicial: iO, neto: nOReal, total_esperado: iO + nOReal }];
                                                         return { tienda_id: t.id, tienda_nombre: t.nombre, efectivo_actual: t.efectivo_actual, estado_caja, cierre_info: estado_caja === 'Cerrada' ? ci : null, bancos: listB, totalEsperado: refRow ? refRow.efectivo : 0 };
                                                     });
                                                     res.json({ auditData: auditMatrix, globalBancario, referenciasTiendas, bancos: saldosBancos });
