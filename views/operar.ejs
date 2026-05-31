@@ -14,6 +14,7 @@
                 <p style="color: var(--text-muted); font-size: 0.9rem;">Tienda: <strong><%= tienda.nombre %></strong></p>
             </div>
             <div style="display:flex; gap:10px;">
+                <button type="button" onclick="abrirModalDeposito()" class="btn btn-success" style="background: #34C759; color:#fff; font-weight:bold; border:none; padding:10px 20px; border-radius:8px; cursor:pointer;">🏦 Depósito Bancario</button>
                 <% if (user && user.rol === 'Cajero') { %>
                 <button type="button" onclick="abrirModalCierre()" class="btn btn-warning" style="background: #E3A000; color:#fff; font-weight:bold; border:none; padding:10px 20px; border-radius:8px; cursor:pointer;">🔒 Corte de Caja</button>
                 <% } %>
@@ -111,6 +112,17 @@
             </div>
         </form>
     </main>
+
+    <script>
+        // Evitar envíos dobles: deshabilita botones submit al enviar cualquier formulario
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('form').forEach(form => {
+                form.addEventListener('submit', () => {
+                    form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(b => b.disabled = true);
+                });
+            });
+        });
+    </script>
 
     <!-- ========== MODAL: GASTO BANCARIO ========== -->
     <div id="modalGasto" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center;">
@@ -265,6 +277,48 @@
                 <div style="display:flex; gap:1rem;">
                     <button type="button" onclick="cerrarModalIngreso()" style="flex:1; padding:0.9rem; border-radius:8px; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.1); color:#fff; cursor:pointer; font-size:0.95rem;">Cancelar</button>
                     <button type="submit" style="flex:2; padding:0.9rem; border-radius:8px; background:linear-gradient(135deg,#0A84FF,#005BB5); border:none; color:#fff; font-weight:800; font-size:0.95rem; cursor:pointer; letter-spacing:0.5px; box-shadow:0 4px 15px rgba(10,132,255,0.3);">Registrar Ingreso</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ========== MODAL: DEPOSITO BANCARIO A CUENTA ========== -->
+    <div id="modalDeposito" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center;">
+        <div style="background:var(--bg-card); width:100%; max-width:460px; border-radius:16px; border:1px solid rgba(52,199,89,0.3); padding:0; overflow:hidden; box-shadow: 0 20px 60px rgba(0,0,0,0.6);">
+            <div style="padding:1.5rem; background:rgba(52,199,89,0.08); border-bottom:1px solid rgba(52,199,89,0.2); display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <h2 style="color:#34C759; margin:0; font-size:1.3rem;">🏦 Depósito Bancario</h2>
+                    <p style="margin:0.2rem 0 0 0; font-size:0.82rem; color:var(--text-muted);">Registra efectivo que depositaste físicamente en una cuenta bancaria.</p>
+                </div>
+                <button onclick="cerrarModalDeposito()" style="background:none; border:none; color:#fff; font-size:1.5rem; cursor:pointer; padding:4px;">&times;</button>
+            </div>
+            <form action="/transaccion" method="POST" style="padding:1.5rem;" id="formDepositoPOS" onsubmit="return limpiarMonedaDeposito()">
+                <input type="hidden" name="tienda_id" value="<%= tienda.id %>">
+                <input type="hidden" name="tipo" value="Depósito Cuenta">
+
+                <div style="margin-bottom:1.2rem;">
+                    <label style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; display:block; margin-bottom:0.5rem;">Banco Depositado</label>
+                    <select name="banco_id" class="form-control" required style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); color:#fff; padding:0.8rem; border-radius:8px; width:100%;">
+                        <option value="">-- Seleccionar Banco --</option>
+                        <% bancos.forEach(b => { %>
+                            <option value="<%= b.id %>"><%= b.nombre %></option>
+                        <% }) %>
+                    </select>
+                </div>
+
+                <div style="margin-bottom:1.2rem;">
+                    <label style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; display:block; margin-bottom:0.5rem;">Monto Depositado (L)</label>
+                    <input type="text" name="monto" id="depositoMontoPOS" class="money-input form-control" placeholder="0.00" required style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); color:#fff; padding:0.8rem; border-radius:8px; width:100%; font-size:1.2rem; font-weight:800;">
+                </div>
+
+                <div style="margin-bottom:1.5rem;">
+                    <label style="font-size:0.8rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; display:block; margin-bottom:0.5rem;">Referencia / Número de Recibo</label>
+                    <input type="text" name="referencia" class="form-control" placeholder="Ej: Recibo #12345 ATM..." required style="background:rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.1); color:#fff; padding:0.8rem; border-radius:8px; width:100%;">
+                </div>
+
+                <div style="display:flex; gap:1rem;">
+                    <button type="button" onclick="cerrarModalDeposito()" style="flex:1; padding:0.9rem; border-radius:8px; background:rgba(255,255,255,0.07); border:1px solid rgba(255,255,255,0.1); color:#fff; cursor:pointer; font-size:0.95rem;">Cancelar</button>
+                    <button type="submit" style="flex:2; padding:0.9rem; border-radius:8px; background:linear-gradient(135deg,#34C759,#248A3D); border:none; color:#fff; font-weight:800; font-size:0.95rem; cursor:pointer; letter-spacing:0.5px; box-shadow:0 4px 15px rgba(52,199,89,0.3);">Registrar Depósito</button>
                 </div>
             </form>
         </div>
@@ -454,6 +508,12 @@
         function cerrarModalIngreso() {
             document.getElementById('modalIngreso').style.display = 'none';
         }
+        function abrirModalDeposito() {
+            document.getElementById('modalDeposito').style.display = 'flex';
+        }
+        function cerrarModalDeposito() {
+            document.getElementById('modalDeposito').style.display = 'none';
+        }
 
         // Limpiar monedas antes de enviar
         function limpiarMonedaGasto() {
@@ -468,6 +528,11 @@
         }
         function limpiarMonedaIngreso() {
             const inp = document.getElementById('ingresoMontoPOS');
+            inp.value = (inp.value || '0').replace(/,/g, '');
+            return true;
+        }
+        function limpiarMonedaDeposito() {
+            const inp = document.getElementById('depositoMontoPOS');
             inp.value = (inp.value || '0').replace(/,/g, '');
             return true;
         }
@@ -486,6 +551,7 @@
             if (e.target === document.getElementById('modalGasto')) cerrarModalGasto();
             if (e.target === document.getElementById('modalTraspaso')) cerrarModalTraspaso();
             if (e.target === document.getElementById('modalIngreso')) cerrarModalIngreso();
+            if (e.target === document.getElementById('modalDeposito')) cerrarModalDeposito();
         });
 
 

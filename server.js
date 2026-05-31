@@ -110,6 +110,23 @@ function getLocalTime() {
     return `${year}-${month}-${day} ${hour}:${minute}:${second}-06:00`;
 }
 
+// Helper: detectar transacciones duplicadas recientes (por seguridad contra doble envío)
+function isDuplicateTransaction(params, cb) {
+    const { tienda_id, usuario_id, tipo, monto_efectivo, referencia, windowSec = 5 } = params;
+    try {
+        db.get(`SELECT fecha_hora FROM transacciones WHERE tienda_id = ? AND usuario_id = ? AND tipo = ? AND monto_efectivo = ? AND referencia = ? ORDER BY fecha_hora DESC LIMIT 1`,
+            [tienda_id, usuario_id, tipo, monto_efectivo, referencia || null], (err, row) => {
+                if (err || !row) return cb(false);
+                try {
+                    const last = new Date(row.fecha_hora);
+                    const now = new Date();
+                    if (Math.abs(now - last) <= windowSec * 1000) return cb(true);
+                } catch (e) { }
+                return cb(false);
+            });
+    } catch (e) { return cb(false); }
+}
+
 const requireAuth = (req, res, next) => {
     if (!req.session.user) return res.redirect('/login');
     next();
@@ -717,25 +734,33 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
             const bOrigenId = banco_origen && banco_origen !== "" ? banco_origen : null;
             const now = getLocalTime();
 
-            db.serialize(() => {
-                db.run('BEGIN TRANSACTION');
-                // 1. Salida de Tesorería Central
-                db.run("INSERT INTO tesoreria_log (tipo, monto, referencia, fecha_hora, banco_id) VALUES ('Envío a Tienda', ?, ?, ?, ?)",
-                    [montoNum, referencia || 'Envío de Efectivo', now, bOrigenId]);
-
-                // 2. Registro de Transacción para la Tienda (Audit trail y balance)
-                // Se registra como ingreso de efectivo físico.
-                db.run(`INSERT INTO transacciones (tienda_id, banco_id, usuario_id, tipo, monto_efectivo, monto_banco, referencia, fecha_hora) 
-                VALUES (?, ?, ?, 'Resurtido Tesorería', ?, 0, ?, ?)`,
-                    [tienda_id, bOrigenId, req.session.user.id, montoNum, referencia || 'Recibido de Tesorería', now]);
-
-                // 3. Entrada en Tienda
-                db.run("UPDATE tiendas SET efectivo_actual = efectivo_actual + ? WHERE id = ?", [montoNum, tienda_id]);
-
-                db.run('COMMIT', (err) => {
-                    if (err) console.error("Error al enviar a tienda:", err);
+            // Evitar inserciones duplicadas por submissions rápidos (ej. doble click)
+            isDuplicateTransaction({ tienda_id: tienda_id, usuario_id: req.session.user.id, tipo: 'Resurtido Tesorería', monto_efectivo: montoNum, referencia: referencia || 'Recibido de Tesorería' }, (dup) => {
+                if (dup) {
                     io.emit('dashboard:updated');
-                    res.redirect('/tesoreria');
+                    return res.redirect('/tesoreria');
+                }
+
+                db.serialize(() => {
+                    db.run('BEGIN TRANSACTION');
+                    // 1. Salida de Tesorería Central
+                    db.run("INSERT INTO tesoreria_log (tipo, monto, referencia, fecha_hora, banco_id) VALUES ('Envío a Tienda', ?, ?, ?, ?)",
+                        [montoNum, referencia || 'Envío de Efectivo', now, bOrigenId]);
+
+                    // 2. Registro de Transacción para la Tienda (Audit trail y balance)
+                    // Se registra como ingreso de efectivo físico.
+                    db.run(`INSERT INTO transacciones (tienda_id, banco_id, usuario_id, tipo, monto_efectivo, monto_banco, referencia, fecha_hora) 
+                    VALUES (?, ?, ?, 'Resurtido Tesorería', ?, 0, ?, ?)`,
+                        [tienda_id, bOrigenId, req.session.user.id, montoNum, referencia || 'Recibido de Tesorería', now]);
+
+                    // 3. Entrada en Tienda
+                    db.run("UPDATE tiendas SET efectivo_actual = efectivo_actual + ? WHERE id = ?", [montoNum, tienda_id]);
+
+                    db.run('COMMIT', (err) => {
+                        if (err) console.error("Error al enviar a tienda:", err);
+                        io.emit('dashboard:updated');
+                        res.redirect('/tesoreria');
+                    });
                 });
             });
         });
@@ -902,20 +927,28 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
             const montoNum = parseFloat(monto);
             if (!montoNum || montoNum <= 0) return res.status(400).send("Monto inválido");
 
-            db.serialize(() => {
-                db.run('BEGIN TRANSACTION');
-
-                // Efectivo -= monto, Banco += monto
-                db.run(`INSERT INTO transacciones (tienda_id, banco_id, usuario_id, tipo, monto_efectivo, monto_banco, referencia) 
-                VALUES (?, ?, ?, 'Depósito Cuenta', ?, ?, ?)`,
-                    [tienda_id, banco_id, req.session.user.id, -montoNum, montoNum, referencia]);
-
-                db.run(`UPDATE tiendas SET efectivo_actual = efectivo_actual - ? WHERE id = ?`, [montoNum, tienda_id]);
-                db.run(`UPDATE saldos_bancarios SET saldo = saldo + ?, actualizado_en = CURRENT_TIMESTAMP WHERE banco_id = ?`, [montoNum, banco_id]);
-
-                db.run('COMMIT', (err) => {
+            // Prevenir duplicados rápidos (la columna monto_efectivo para depósito se inserta como -monto)
+            isDuplicateTransaction({ tienda_id: tienda_id, usuario_id: req.session.user.id, tipo: 'Depósito Cuenta', monto_efectivo: -montoNum, referencia: referencia || null }, (dup) => {
+                if (dup) {
                     io.emit('dashboard:updated');
-                    res.redirect('/');
+                    return res.redirect('/');
+                }
+
+                db.serialize(() => {
+                    db.run('BEGIN TRANSACTION');
+
+                    // Efectivo -= monto, Banco += monto
+                    db.run(`INSERT INTO transacciones (tienda_id, banco_id, usuario_id, tipo, monto_efectivo, monto_banco, referencia) 
+                    VALUES (?, ?, ?, 'Depósito Cuenta', ?, ?, ?)`,
+                        [tienda_id, banco_id, req.session.user.id, -montoNum, montoNum, referencia]);
+
+                    db.run(`UPDATE tiendas SET efectivo_actual = efectivo_actual - ? WHERE id = ?`, [montoNum, tienda_id]);
+                    db.run(`UPDATE saldos_bancarios SET saldo = saldo + ?, actualizado_en = CURRENT_TIMESTAMP WHERE banco_id = ?`, [montoNum, banco_id]);
+
+                    db.run('COMMIT', (err) => {
+                        io.emit('dashboard:updated');
+                        res.redirect('/');
+                    });
                 });
             });
         });
@@ -925,7 +958,7 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
             if (req.session.user.rol !== 'Cajero') return res.redirect('/');
             const tiendaId = req.session.user.tienda_id;
 
-            db.all("SELECT * FROM bancos", [], (err, bancos) => {
+            db.all("SELECT * FROM bancos WHERE tienda_id IS NULL OR tienda_id = ?", [tiendaId], (err, bancos) => {
                 db.get("SELECT * FROM aperturas_caja WHERE tienda_id = ? ORDER BY fecha_hora DESC LIMIT 1", [tiendaId], (err, lastApertura) => {
                     const fechaUltima = lastApertura ? lastApertura.fecha_hora : '2000-01-01';
 
@@ -1019,7 +1052,7 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
             db.get("SELECT * FROM tiendas WHERE id = ?", [tiendaId], (err, tienda) => {
                 if (err || !tienda) return res.status(404).send("Tienda no encontrada.");
 
-                db.all("SELECT b.*, s.saldo as saldo_virtual FROM bancos b LEFT JOIN saldos_bancarios s ON b.id = s.banco_id", [], (err, bancos) => {
+                db.all("SELECT b.*, s.saldo as saldo_virtual FROM bancos b LEFT JOIN saldos_bancarios s ON b.id = s.banco_id WHERE b.tienda_id IS NULL OR b.tienda_id = ?", [tiendaId], (err, bancos) => {
 
                     // Calcular efectivo físico disponible por banco
                     db.get("SELECT * FROM aperturas_caja WHERE tienda_id = ? ORDER BY fecha_hora DESC LIMIT 1", [tiendaId], (err, apertura) => {
@@ -1094,51 +1127,59 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
 
                 const now = getLocalTime();
 
-                // Iniciamos transacción manual para mayor control
-                db.run('BEGIN TRANSACTION', (err) => {
-                    if (err) return res.status(500).send("No se pudo iniciar la transacción");
+                // Verificar duplicados antes de iniciar la transacción
+                isDuplicateTransaction({ tienda_id: tienda_id, usuario_id: req.session.user.id, tipo: tipo, monto_efectivo: resEf, referencia: referencia || null }, (dup) => {
+                    if (dup) {
+                        io.emit('dashboard:updated');
+                        return res.redirect('/operar/' + tienda_id);
+                    }
 
-                    const insertSql = `INSERT INTO transacciones (tienda_id, banco_id, usuario_id, tipo, monto_efectivo, monto_banco, comision_efectivo, comision_banco, referencia, fecha_hora) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-                    const insertParams = [tienda_id, banco_id || null, req.session.user.id, tipo, resEf, resVi, comEf, comVi, referencia, now];
+                    // Iniciamos transacción manual para mayor control
+                    db.run('BEGIN TRANSACTION', (err) => {
+                        if (err) return res.status(500).send("No se pudo iniciar la transacción");
 
-                    db.run(insertSql, insertParams, function (err) {
-                        if (err) {
-                            console.error("Error en INSERT:", err);
-                            return db.run('ROLLBACK', () => res.status(500).send("Error al registrar transación: " + err.message));
-                        }
+                        const insertSql = `INSERT INTO transacciones (tienda_id, banco_id, usuario_id, tipo, monto_efectivo, monto_banco, comision_efectivo, comision_banco, referencia, fecha_hora) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+                        const insertParams = [tienda_id, banco_id || null, req.session.user.id, tipo, resEf, resVi, comEf, comVi, referencia, now];
 
-                        db.run(`UPDATE tiendas SET efectivo_actual = efectivo_actual + ? WHERE id = ?`, [resEf, tienda_id], (err) => {
+                        db.run(insertSql, insertParams, function (err) {
                             if (err) {
-                                console.error("Error en UPDATE Tienda:", err);
-                                return db.run('ROLLBACK', () => res.status(500).send("Error al actualizar caja: " + err.message));
+                                console.error("Error en INSERT:", err);
+                                return db.run('ROLLBACK', () => res.status(500).send("Error al registrar transación: " + err.message));
                             }
 
-                            const finishTransaction = () => {
-                                if (tipo === 'Efectivo Entregado') {
-                                    db.run(`INSERT INTO remesas (tienda_id, monto, fecha_envio, estado, banco_id, observaciones) VALUES (?, ?, ?, 'Pendiente', ?, ?)`,
-                                        [tienda_id, montoNum, now, banco_id || null, 'Entrega desde POS'], (err) => {
-                                            if (err) {
-                                                console.error("Error al crear remesa:", err);
-                                                return db.run('ROLLBACK', () => res.status(500).send("Error al registrar entrega: " + err.message));
-                                            }
-                                            db.run('COMMIT', (err) => { io.emit('dashboard:updated'); res.redirect('/operar/' + tienda_id); });
-                                        });
-                                } else {
-                                    db.run('COMMIT', (err) => { io.emit('dashboard:updated'); res.redirect('/operar/' + tienda_id); });
+                            db.run(`UPDATE tiendas SET efectivo_actual = efectivo_actual + ? WHERE id = ?`, [resEf, tienda_id], (err) => {
+                                if (err) {
+                                    console.error("Error en UPDATE Tienda:", err);
+                                    return db.run('ROLLBACK', () => res.status(500).send("Error al actualizar caja: " + err.message));
                                 }
-                            };
 
-                            if (banco_id && resVi !== 0) {
-                                db.run(`UPDATE saldos_bancarios SET saldo = saldo + ?, actualizado_en = ? WHERE banco_id = ?`, [resVi, now, banco_id], (err) => {
-                                    if (err) {
-                                        console.error("Error en UPDATE Banco:", err);
-                                        return db.run('ROLLBACK', () => res.status(500).send("Error al actualizar banco: " + err.message));
+                                const finishTransaction = () => {
+                                    if (tipo === 'Efectivo Entregado') {
+                                        db.run(`INSERT INTO remesas (tienda_id, monto, fecha_envio, estado, banco_id, observaciones) VALUES (?, ?, ?, 'Pendiente', ?, ?)`,
+                                            [tienda_id, montoNum, now, banco_id || null, 'Entrega desde POS'], (err) => {
+                                                if (err) {
+                                                    console.error("Error al crear remesa:", err);
+                                                    return db.run('ROLLBACK', () => res.status(500).send("Error al registrar entrega: " + err.message));
+                                                }
+                                                db.run('COMMIT', (err) => { io.emit('dashboard:updated'); res.redirect('/operar/' + tienda_id); });
+                                            });
+                                    } else {
+                                        db.run('COMMIT', (err) => { io.emit('dashboard:updated'); res.redirect('/operar/' + tienda_id); });
                                     }
+                                };
+
+                                if (banco_id && resVi !== 0) {
+                                    db.run(`UPDATE saldos_bancarios SET saldo = saldo + ?, actualizado_en = ? WHERE banco_id = ?`, [resVi, now, banco_id], (err) => {
+                                        if (err) {
+                                            console.error("Error en UPDATE Banco:", err);
+                                            return db.run('ROLLBACK', () => res.status(500).send("Error al actualizar banco: " + err.message));
+                                        }
+                                        finishTransaction();
+                                    });
+                                } else {
                                     finishTransaction();
-                                });
-                            } else {
-                                finishTransaction();
-                            }
+                                }
+                            });
                         });
                     });
                 });
@@ -1803,6 +1844,23 @@ app.post('/config/iniciales', requireAdmin, (req, res) => {
 
                     db.run("DELETE FROM remesas WHERE id = ?", [id]);
                     db.run('COMMIT', () => { io.emit('dashboard:updated'); res.redirect('/tesoreria'); });
+                });
+            });
+        });
+
+        app.post('/tesoreria/remesa/eliminar-todas', requireAdminOrContador, (req, res) => {
+            db.serialize(() => {
+                db.run('BEGIN TRANSACTION');
+                db.run("DELETE FROM remesas WHERE estado = 'Pendiente'", (err) => {
+                    if (err) {
+                        console.error("Error al eliminar todas las recepciones pendientes:", err);
+                        db.run('ROLLBACK');
+                        return res.status(500).send("Error al eliminar las recepciones");
+                    }
+                    db.run('COMMIT', () => {
+                        io.emit('dashboard:updated');
+                        res.redirect('/tesoreria');
+                    });
                 });
             });
         });

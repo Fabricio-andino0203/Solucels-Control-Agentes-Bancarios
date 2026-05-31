@@ -14,8 +14,15 @@ const initializeDatabase = () => {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             nombre TEXT NOT NULL,
             color TEXT,
-            estado TEXT DEFAULT 'Activo'
+            estado TEXT DEFAULT 'Activo',
+            tienda_id INTEGER DEFAULT NULL,
+            FOREIGN KEY (tienda_id) REFERENCES tiendas(id)
         )`);
+
+        // Migración: Añadir tienda_id si no existe
+        db.run("ALTER TABLE bancos ADD COLUMN tienda_id INTEGER DEFAULT NULL", (err) => {
+            if (!err) console.log("Columna tienda_id añadida a bancos.");
+        });
         
         // Saldos Bancarios (Virtual Balance)
         db.run(`CREATE TABLE IF NOT EXISTS saldos_bancarios (
@@ -135,6 +142,35 @@ const initializeDatabase = () => {
 
                 console.log("Datos semilla avanzados insertados correctamente.");
             }
+            
+            // Verificar si ya existen los bancos Tengo de T7 y T4
+            db.get("SELECT COUNT(*) AS count FROM bancos WHERE nombre = 'Tengo (Tienda 7)'", (err, row) => {
+                if (row && row.count === 0) {
+                    db.run("INSERT INTO bancos (nombre, color, tienda_id) VALUES ('Tengo (Tienda 7)', '#F68D2E', 7)", function(err) {
+                        if (!err) {
+                            let bancoId = this.lastID;
+                            db.run("INSERT INTO saldos_bancarios (banco_id, saldo) VALUES (?, 0.00)", [bancoId]);
+                            db.run("INSERT INTO comisiones (tipo_transaccion, banco_id, valor_efectivo, valor_virtual) VALUES ('Retiro', ?, 0, 10)", [bancoId]);
+                            db.run("INSERT INTO comisiones (tipo_transaccion, banco_id, valor_efectivo, valor_virtual) VALUES ('Pago Servicio', ?, 8, -8)", [bancoId]);
+                            console.log("Banco Tengo (Tienda 7) añadido correctamente.");
+                        }
+                    });
+                }
+            });
+
+            db.get("SELECT COUNT(*) AS count FROM bancos WHERE nombre = 'Tengo (Tienda 4)'", (err, row) => {
+                if (row && row.count === 0) {
+                    db.run("INSERT INTO bancos (nombre, color, tienda_id) VALUES ('Tengo (Tienda 4)', '#F68D2E', 4)", function(err) {
+                        if (!err) {
+                            let bancoId = this.lastID;
+                            db.run("INSERT INTO saldos_bancarios (banco_id, saldo) VALUES (?, 0.00)", [bancoId]);
+                            db.run("INSERT INTO comisiones (tipo_transaccion, banco_id, valor_efectivo, valor_virtual) VALUES ('Retiro', ?, 0, 10)", [bancoId]);
+                            db.run("INSERT INTO comisiones (tipo_transaccion, banco_id, valor_efectivo, valor_virtual) VALUES ('Pago Servicio', ?, 8, -8)", [bancoId]);
+                            console.log("Banco Tengo (Tienda 4) añadido correctamente.");
+                        }
+                    });
+                }
+            });
         });
     });
 };

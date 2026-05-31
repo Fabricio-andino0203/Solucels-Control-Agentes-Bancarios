@@ -240,5 +240,15 @@
             });
         }
     </script>
+    <script>
+        // Prevención cliente de doble envío en formularios de la vista
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('form').forEach(form => {
+                form.addEventListener('submit', () => {
+                    form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(b => b.disabled = true);
+                });
+            });
+        });
+    </script>
 </body>
 </html>

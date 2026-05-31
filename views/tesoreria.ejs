@@ -33,9 +33,7 @@
                 </button>
                 <button class="nav-module-btn" data-module="recepciones" onclick="showModule('recepciones')">
                     <span class="icon">📥</span> Recepciones 
-                    <% if(remesasPendientes.length > 0) { %>
-                        <span style="background: var(--danger); font-size: 0.6rem; padding: 2px 6px; border-radius: 10px; margin-left: auto;"><%= remesasPendientes.length %></span>
-                    <% } %>
+                    <span id="recepciones-badge" style="background: var(--danger); font-size: 0.6rem; padding: 2px 6px; border-radius: 10px; margin-left: auto; display: <%= remesasPendientes.length > 0 ? 'inline-block' : 'none' %>;"><%= remesasPendientes.length %></span>
                 </button>
                 <button class="nav-module-btn" data-module="operaciones" onclick="showModule('operaciones')">
                     <span class="icon">⚙️</span> Operaciones

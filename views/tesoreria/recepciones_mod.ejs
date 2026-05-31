@@ -6,9 +6,18 @@
     </div>
 
     <div class="card-premium">
-        <div class="card-header-premium">
-            <span class="icon">📦</span>
-            <span class="title">Remesas por Recibir</span>
+        <div class="card-header-premium" style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <span class="icon">📦</span>
+                <span class="title">Remesas por Recibir</span>
+            </div>
+            <div id="delete-all-container" style="display: <%= remesasPendientes.length > 0 ? 'block' : 'none' %>;">
+                <form action="/tesoreria/remesa/eliminar-todas" method="POST" onsubmit="return confirm('¿ELIMINAR TODAS las recepciones pendientes? Esta acción no se puede deshacer y no se devolverá el efectivo a las tiendas.')" style="margin: 0;">
+                    <button type="submit" class="btn btn-danger-outline" style="padding: 0.5rem 1rem; font-size: 0.85rem; display: flex; align-items: center; gap: 0.3rem;">
+                        <span>🗑️</span> Borrar Todas
+                    </button>
+                </form>
+            </div>
         </div>
         <div class="table-responsive">
             <table class="audit-table">
@@ -131,6 +140,19 @@
     }
 
     function updateRemesasTable(remesas, tbody) {
+        // Actualizar visibilidad de botón de borrar todas
+        const deleteBtnContainer = document.getElementById('delete-all-container');
+        if (deleteBtnContainer) {
+            deleteBtnContainer.style.display = remesas.length > 0 ? 'block' : 'none';
+        }
+
+        // Actualizar contador del menú de navegación
+        const badge = document.getElementById('recepciones-badge');
+        if (badge) {
+            badge.textContent = remesas.length;
+            badge.style.display = remesas.length > 0 ? 'inline-block' : 'none';
+        }
+
         if (remesas.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" class="empty-table">No hay efectivo por recibir de tiendas.</td></tr>';
             return;
