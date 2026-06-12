@@ -77,6 +77,9 @@ const initializeDatabase = () => {
             FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
         )`);
 
+        db.run(`CREATE INDEX IF NOT EXISTS idx_transacciones_fecha_hora ON transacciones(fecha_hora)`);
+        db.run(`CREATE INDEX IF NOT EXISTS idx_transacciones_usuario_id ON transacciones(usuario_id)`);
+
         // Cierres de caja
         db.run(`CREATE TABLE IF NOT EXISTS cierres_caja (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

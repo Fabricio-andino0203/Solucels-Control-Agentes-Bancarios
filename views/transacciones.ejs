@@ -59,15 +59,17 @@
             <% if(user && user.rol !== 'Cajero') { %>
                 <div style="flex: 1;">
                     <span class="filter-label">Tienda</span>
-                    <select class="filter-control" id="filt-tienda" style="width: 100%;">
+                    <select class="filter-control" id="filt-tienda" style="width: 100%;" onchange="aplicarFiltros()">
                         <option value="">Todas las Tiendas</option>
-                        <% tiendas.forEach(t => { %> <option value="<%= t.nombre %>"><%= t.nombre %></option> <% }) %>
+                        <% tiendas.forEach(t => { %> 
+                            <option value="<%= t.id %>" <%= tiendaFiltro == t.id ? 'selected' : '' %>><%= t.nombre %></option> 
+                        <% }) %>
                     </select>
                 </div>
             <% } %>
             <div style="flex: 1;">
                 <span class="filter-label">Tipo de Operación</span>
-                <select class="filter-control" id="filt-tipo" style="width: 100%;" onchange="aplicarFiltroTipo(this.value)">
+                <select class="filter-control" id="filt-tipo" style="width: 100%;" onchange="aplicarFiltros()">
                     <option value="" <%= tipoFiltro === '' ? 'selected' : '' %>>Todas las Operaciones</option>
                     <% tipos.forEach(t => { %>
                         <option value="<%= t %>" <%= tipoFiltro === t ? 'selected' : '' %>><%= t %></option>
@@ -76,18 +78,30 @@
             </div>
             <div style="flex: 1;">
                 <span class="filter-label">Banco</span>
-                <select class="filter-control" id="filt-banco" style="width: 100%;">
+                <select class="filter-control" id="filt-banco" style="width: 100%;" onchange="aplicarFiltros()">
                     <option value="">Todos los Bancos</option>
-                    <% bancos.forEach(b => { %> <option value="<%= b.nombre %>"><%= b.nombre %></option> <% }) %>
+                    <% bancos.forEach(b => { %> 
+                        <option value="<%= b.id %>" <%= bancoFiltro == b.id ? 'selected' : '' %>><%= b.nombre %></option> 
+                    <% }) %>
                 </select>
             </div>
             <div style="flex: 1;">
                 <span class="filter-label">Fecha de Operación</span>
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
-                    <input type="date" class="filter-control" id="filt-fecha" style="width: 100%;">
-                    <button class="btn btn-primary" onclick="document.getElementById('filt-fecha').value=''; filterTable();" style="padding: 0.75rem 1rem; border-radius: 8px; font-weight: bold; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff;" title="Ver todas las fechas">Todo</button>
+                    <input type="date" class="filter-control" id="filt-fecha" style="width: 100%;" value="<%= fechaFiltro && fechaFiltro !== 'all' ? fechaFiltro : '' %>" onchange="aplicarFiltros()">
+                    <button class="btn btn-primary" onclick="document.getElementById('filt-fecha').value=''; aplicarFiltros();" style="padding: 0.75rem 1rem; border-radius: 8px; font-weight: bold; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff;" title="Ver todas las fechas">Todo</button>
                 </div>
             </div>
+        </div>
+
+        <div style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.5rem;">
+            <% if (!fechaFiltro) { %>
+                <span style="font-size: 0.85rem; color: #0a84ff; background: rgba(10,132,255,0.1); padding: 0.3rem 0.6rem; border-radius: 6px; font-weight: 700;">🕒 Mostrando últimos 30 días</span>
+            <% } else if (fechaFiltro === 'all') { %>
+                <span style="font-size: 0.85rem; color: #34c759; background: rgba(52,199,89,0.1); padding: 0.3rem 0.6rem; border-radius: 6px; font-weight: 700;">📅 Mostrando todo el historial</span>
+            <% } else { %>
+                <span style="font-size: 0.85rem; color: #bf5af2; background: rgba(191,90,242,0.1); padding: 0.3rem 0.6rem; border-radius: 6px; font-weight: 700;">📅 Mostrando fecha: <%= fechaFiltro %></span>
+            <% } %>
         </div>
 
         <div class="tx-container" style="overflow-x: auto;">
@@ -151,6 +165,33 @@
                 </tbody>
             </table>
         </div>
+
+        <!-- Controles de Paginación -->
+        <div class="pagination-container" style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.5rem; padding: 1rem; background: rgba(255,255,255,0.02); border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); flex-wrap: wrap; gap: 1rem; box-shadow: 0 4px 20px rgba(0,0,0,0.2);">
+            <div style="color: var(--text-muted); font-size: 0.95rem;">
+                Mostrando <span style="font-weight: 700; color: #fff;"><%= transacciones.length %></span> de <span style="font-weight: 700; color: #fff;"><%= totalTransactions %></span> movimientos
+            </div>
+            
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <% if (currentPage > 1) { %>
+                    <button class="btn btn-primary" onclick="cambiarPagina(1)" style="padding: 0.6rem 0.8rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s;" title="Primera Página">&laquo;</button>
+                    <button class="btn btn-primary" onclick="cambiarPagina(<%= currentPage - 1 %>)" style="padding: 0.6rem 1rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s;">Anterior</button>
+                <% } else { %>
+                    <button class="btn" style="padding: 0.6rem 0.8rem; background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.02); color: #555; border-radius: 8px; cursor: not-allowed;" disabled>&laquo;</button>
+                    <button class="btn" style="padding: 0.6rem 1rem; background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.02); color: #555; border-radius: 8px; cursor: not-allowed;" disabled>Anterior</button>
+                <% } %>
+
+                <span style="color: #aaa; font-weight: 600; font-size: 0.95rem; margin: 0 0.75rem;">Página <%= currentPage %> de <%= totalPages %></span>
+
+                <% if (currentPage < totalPages) { %>
+                    <button class="btn btn-primary" onclick="cambiarPagina(<%= currentPage + 1 %>)" style="padding: 0.6rem 1rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s;">Siguiente</button>
+                    <button class="btn btn-primary" onclick="cambiarPagina(<%= totalPages %>)" style="padding: 0.6rem 0.8rem; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #fff; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s;" title="Última Página">&raquo;</button>
+                <% } else { %>
+                    <button class="btn" style="padding: 0.6rem 1rem; background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.02); color: #555; border-radius: 8px; cursor: not-allowed;" disabled>Siguiente</button>
+                    <button class="btn" style="padding: 0.6rem 0.8rem; background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.02); color: #555; border-radius: 8px; cursor: not-allowed;" disabled>&raquo;</button>
+                <% } %>
+            </div>
+        </div>
     </main>
 
     <!-- Modal Editar -->
@@ -195,49 +236,31 @@
             if (event.target == document.getElementById('editModal')) closeEditModal();
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            const dateInput = document.getElementById('filt-fecha');
-            // Cargar fecha actual por defecto en zona horaria de Honduras
-            const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Tegucigalpa' }).format(new Date());
-            dateInput.value = today;
+        function aplicarFiltros() {
+            const tiendaId = document.getElementById('filt-tienda') ? document.getElementById('filt-tienda').value : '';
+            const tipo = document.getElementById('filt-tipo').value;
+            const bancoId = document.getElementById('filt-banco').value;
+            const fecha = document.getElementById('filt-fecha').value;
 
-            document.querySelectorAll('.filter-control').forEach(el => {
-                el.addEventListener('change', filterTable);
-                el.addEventListener('input', filterTable);
-            });
+            const url = new URL(window.location.origin + window.location.pathname);
+            url.searchParams.set('page', '1'); // Reset to page 1
 
-            filterTable(); // Aplicar el filtro inmediatamente
-        });
-
-        function aplicarFiltroTipo(tipo) {
-            // El filtro de tipo es server-side: recarga la página con el param
-            const url = new URL(window.location.href);
+            if (tiendaId) url.searchParams.set('tienda_id', tiendaId);
             if (tipo) url.searchParams.set('tipo', tipo);
-            else url.searchParams.delete('tipo');
+            if (bancoId) url.searchParams.set('banco_id', bancoId);
+            if (fecha) {
+                url.searchParams.set('fecha', fecha);
+            } else if (fecha === '') {
+                url.searchParams.set('fecha', 'all');
+            }
+
             window.location.href = url.toString();
         }
 
-        function filterTable() {
-            const tienda = document.getElementById('filt-tienda') ? document.getElementById('filt-tienda').value.toLowerCase() : '';
-            const banco = document.getElementById('filt-banco').value.toLowerCase();
-            const fecha = document.getElementById('filt-fecha').value;
-
-            const rows = document.querySelectorAll('#txTable tbody tr');
-            rows.forEach(row => {
-                const rowDateFormatted = row.getAttribute('data-date');
-                const rowTienda = row.cells[1].innerText.toLowerCase();
-                const rowBanco = row.cells[3].innerText.toLowerCase();
-
-                const matchTienda = tienda === '' || rowTienda.includes(tienda);
-                const matchBanco = banco === '' || rowBanco.includes(banco);
-                const matchFecha = fecha === '' || rowDateFormatted === fecha;
-
-                if (matchTienda && matchBanco && matchFecha) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
-            });
+        function cambiarPagina(p) {
+            const url = new URL(window.location.href);
+            url.searchParams.set('page', p);
+            window.location.href = url.toString();
         }
     </script>
     <script>
